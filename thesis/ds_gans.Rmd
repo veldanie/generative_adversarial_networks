@@ -1,0 +1,506 @@
+---
+title: Generative Adversarial Networks
+subtitle: 'Master in Data Science'  
+author: "Daniel Velasquez Vergara"
+date: "June 30, 2017"
+header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{float}
+   - \newcommand{\bs}{\boldsymbol}
+   - \newcommand{\bl}{\mathbf}
+output:
+  pdf_document:
+    fig_caption: no
+    highlight: kate
+    keep_tex: no
+    number_sections: yes
+fontsize: 12pt
+---
+
+```{r, knitr_options, include=FALSE}
+    
+    # loading in required packages
+    if (!require("knitr")) install.packages("knitr"); library(knitr)
+    if (!require("rmarkdown")) install.packages("rmarkdown"); library(rmarkdown)
+
+    # some useful global defaults
+    opts_chunk$set(warning=FALSE, message=FALSE, include=TRUE, echo=TRUE, cache=TRUE, cache.comments=FALSE, comment='##')
+
+    # output specific defaults
+    output <- opts_knit$get("rmarkdown.pandoc.to")
+    if (output=="pdf") opts_chunk$set(fig.width=4,  fig.height=6, 
+        dev = 'pdf', dev.args=list(family="Arial"))
+    
+```
+
+```{r, echo = FALSE}
+setwd( "/Users/veldanie/Documents/bgse/GANs/thesis")
+```
+
+\vspace{50pt}
+
+\begin{abstract}
+Generative adversarial networks or GANs are implicit generative models that define a neural network which takes a random vector as input and returns a sample from a probability distribution. In this setting, training is performed through a discriminative neural network that estimates the probability that a sample is observed rather than generated. The goal of this master thesis is to understand the training process of GANs. To do so, we analyze different objective functions and ilustrate their the advantages and disadvantages by performing simple experiments. We also explore how adversarial networks can be used to approximate Bayesian inference in probabilistic models and establish a connection between GANs and Variational Autoencoders.
+\end{abstract}
+
+\newpage
+
+\section{Introduction}
+
+Given a set of observations from a data generating process with unknown distribution $p$, a generative model learns another probability distribution $q_{\theta}$ that represents $p$. There are cases in which $q_{\theta}$ has an explicit parametric form and it is posible to specify a log-likelihood function $\log q_{\theta}(\mathbf{x})$ that depends on a set of parameters $\theta$. In an *implicit generative model*, the parametric representation of $q_{\theta}(\mathbf{x})$ is unknown, however it is possible to generate samples from it.
+
+Generative adversarial networks or GANs are a type of algorithms for unsupervised learning introduced by Goodfellow et al. (2014). GANs are implicit generative models that define a scheme to produce samples from a target distribution without a explicit likelihood function. To do so, GANs specify a feedforward neural network in which the input is a vector of random numbers passed through the layers of the network. Its output is a sample from the desired distribution. Training is performed through an auxiliary discriminative neural network that estimates the probability that a sample comes from the training set and has not been generated.
+
+GANs has gained a lot of atention due to their capacity to produce data from high dimensional complex probabilily distributions. Practical applications include images, video and speech generation. However, solving this problem is not necesarily an easy task. Despite the theory that justify the procedure, in practice, convergence is not guaranteed. Additionally, for diferent reasons, some of which are discussed in this document, the specification objective function can lead to low quality samples.
+
+Section \ref{gm} provides a general overview of generative models, and in particular, implicit generative models. Section \ref{gans} dicusses GANs in detail, the training procedure and the advantages and disadvantages of different specifications of the objective function. Finally, section \ref{gans_bi} discusses how GANs can improve Variational Autoencoders (VAEs) and ilustrates an application of GANs to estimate the posterior density of latent variables within a bayesian framework. 
+
+
+<!----------------------------------------------------------->
+<!----------------------------------------------------------->
+<!----------------------------------------------------------->
+
+\section {Generative Models}\label{gm}
+
+A generative model allows to produce random data from a certain probability distribution given a set of parameters. The task is to device a mechanism to generate samples with the same distribution of a given training dataset. If the density function $q_{\theta}$ has an explicit parametric representation, we can estimate the parameters $\theta$ by performing maximum likelihood. However, tracktability might come at the cost of the model not being able to capture the complexities of the data. One class of models with known explicit density function are neural autoregressive generative models where joint probabilities correspond neural neuworks as products of conditional distributions, e.g. wavenet and PixelRNN, generative models for audio and images respectively (see Van den Oord et al. (2016a, 2016b)). In this case,
+
+\[
+q_{\theta}(\mathbf{x})=\prod_{i=1}^{n}{q_{\theta}(x_{i}|x_{1},...,x_{i-1})}
+\]
+
+Some of the practical difficulties of this type of models is the computational cost of generating one data point and the impossibility to paralellize the process. 
+
+On the other hand, there exist a class of models for which the density function of the data generating process is intractable and needs to be approximated. One prominent example are variational autoencoders (Kingma (2013)), where a learning algorithm maximizes a tracktable lower bound for the log-likelihood of the data generating process (see section \ref{vae_sec}). Another example are stochastic recurrent neural network (Boltzmann machines) in which a learning algorithm generates samples of a markov chain to train the model.
+
+\subsection{Implicit Generative Models}
+
+Suppose the goal is to train a generative model, i.e. we want to learn $p(\mathbf{x})$ with support in some space $\mathcal{X}\subseteq\mathbb{R}^{m}$. $\mathbf{x}$ can be a high dimensional random variable with complex dependencies across dimensions that are captured by a set of latent variables. Let $\mathbf{z}$ be a vector of latent variables in some space $\mathcal{Z}\subseteq\mathbb{R}^{d}$, with density function $q(\mathbf{z})$. On the other hand, there is a family of deterministic functions $G_{\theta}(\mathbf{z})$, parameterized by $\theta\in\Theta$, such that $G:\mathcal{X}\times\Theta\rightarrow\mathcal{X}$. 
+
+Assuming we can sample from $q(\mathbf{z})$, we optimize the parameters $\theta$ such that $G_{\theta}(\mathbf{z})$ is able to generate data that resembles the observed dataset. Therefore, as ilustrated by Mohamed and Lakshminarayanan (2017), for  $\mathbf{z}'\sim q(\mathbf{z})$, we have that
+
+\begin{align*}
+\mathbf{x} = G(\mathbf{z}')
+\end{align*}
+
+and 
+
+\begin{align}
+q_{\theta}(\mathbf{x})=\frac{\partial}{\partial x_{1}}...\frac{\partial}{\partial x_{d}}\int_{\{G(\mathbf{z})\leq\mathbf{x}\}}q(\mathbf{z})d\mathbf{z},
+\label{inte}
+\end{align}
+
+If $G$ is invertible and $m=d$ we can recover the density of the generator. In general, $G$ can be non-linear and $d>m$ when using deep networks. The integral in (\ref{inte}) is intractable, therefore the log-likelihood function of the model is not available. Learning in this context relies on the hability of generating samples from the model and discriminating it from real data. 
+
+Some generative models such as GANs and VAEs are supported on a neural networks that can be trained by stochastic gradient descent through backpropagation. However, when dealing with implicit model, it is not enterily clear how to define an appropiate loss function to learn. Several problems arise in practice, e.g. lack of convergence or a fitting a generator that only produces samples from a few modes of a target multi-modal distribution.
+
+
+\section {Generative Adversarial Networks (GANs)}\label{gans}
+
+Generatice adversarial networks are a game between two players. The generator and the discriminator. The goal of the generator is to create samples that seem to come from the same distribution as the training data. The discriminator is a classifier that examines samples to determine whether they are real or fake. The discriminator is a typical supervised learning problem in which the samples have the label *real* or *fake*.  
+
+Let $\mathbf{z}$ be a latent variable and $\mathbf{x}$ a real observation. The discriminator $D$ is a function of $\mathbf{x}$ with parameters $\phi$, and the generator $G$ is a differentiable function of $\mathbf{z}$ with parameters $\theta$. Initally, $\mathbf{z}$ is sampled from some prior distribution $q$, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from $q_{\theta}$. 
+
+A set of $d$ random variables with normal distribution can generate any distribution as long as $G$ is sufficiently complex. In order for the support of $q_{\theta}$ to correspond to the full space of $\mathbf{x}$, the dimension of $\mathbf{z}$ to be the same as $\mathbf{x}$. In this context, we can draw samples from the model that are indistinguishables to the samples from the true data generating proces. 
+
+GANs have atento due to their capacity to produce data from complex high dimensional distributios. Additionally, samples can be generated in parallel, which can improve the speed of the algorithm. Unlike other methods such as VAEs or Boltzman machines they do not depend an a variational bound or a markov chain process.
+
+\subsection{GANs Training}
+
+Training is typically performed using Stochastic Gradient Descent. In particular, at each step we have two minibatches: one of $\mathbf{x}$ values from the training dataset, and a minibatch of $\mathbf{z}$ values drawn from the model’s prior over latent variables. We update $\phi$ to reduce the cost function of the discriminator network $\mathcal{L}^D$, and then we update $\theta$ to reduce the cost of the generator network $\mathcal{L}^{G}$. 
+
+\subsection{Minimax Approach}
+
+The original formulation of the problem proposes a zero-sum game between to two neural networks competing against each other: the discriminator $D$ and the generator $G$. The discriminator loss function is given by
+
+\[
+\mathcal{L}^{D}(\phi,\theta)=-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim p}\log D(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
+\]
+
+and corresponds to a cross-entropy loss when training a classifier with sigmoid output. By training the classifier we obtain an estimate of 
+
+\[
+\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}
+\]
+
+In order to explain the idea better, consider a random variable $y$. We have that $y=1$ if $\mathbf{x}$ comes from $g$ and $y=0$ if $\mathbf{x}$ comes from $q_{\theta}$. Let $p(\mathbf{x})=p(\mathbf{x}|y=1)$ and $q_{\theta}(\mathbf{x})=p(\mathbf{x}|y=0)$. Let $\pi = p(y=1)$, then by Bayes rule
+
+\begin{align*}
+\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}&=\frac{p(\mathbf{x}|y=1)}{p(\mathbf{x}|y=0)}\\
+&=\frac{p(y=1|\mathbf{x})p(\mathbf{x})/p(y=1)}{p(y=0|\mathbf{x})p(\mathbf{x})/p(y=0)}\\
+&=\frac{p(y=1|\mathbf{x})}{p(y=0|\mathbf{x})}\frac{1-\pi}{\pi}
+\end{align*}
+
+If the amount of data from the two classes is the same, we assume $\pi=1/2$. The discriminator corresponds to 
+
+\begin{align*}
+D(\mathbf{x}) &= p(y=1|\mathbf{x})\\
+&=\frac{p(\mathbf{x}|y=1)p(y=1)}{p(\mathbf{x}|y=1)p(y=0)+p(\mathbf{x}|y=1)p(y=0)}\\
+&=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}
+\end{align*}
+
+therefore
+
+\[\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})} = \frac{D(\mathbf{x})}{1-D(\mathbf{x})}\]
+
+Note that the los function 
+
+\begin{align*}
+\mathcal{L}(\phi,\theta)&=\mathbb{E}_{p(\mathbf{x}|y)p(y)}[-y\log D(\mathbf{x})-(1-y)\log{(1- D(\mathbf{x}))}]\\
+&=\pi\mathbb{E}_{\mathbf{x}\sim g}[-\log D(\mathbf{x})]+(1-\pi)\mathbb{E}_{\mathbf{x}\sim q_{\theta}}[-\log{(1- D(\mathbf{x}))}]\\
+&=-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim g}\log D(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
+\end{align*}
+
+This loss function is optimized by two stages at each iteration.The function is minimized with respect to $\phi$,  
+
+\begin{align}
+\mathcal{L}^{D}(\phi,\theta)&=-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim g}\log D(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
+\label{D_loss}
+\end{align}
+
+In the other stage, the function is minimized with respect to $\theta$. The terms that depend on $\theta$ correspond to the generator loss, i.e. 
+\begin{align*}
+\mathcal{L}^{G}(\phi,\theta)&=-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
+\end{align*}
+
+Goodfellow et al. (2014) shows that for $G$ fixed, the optimal discriminator $D$ is given by
+
+\begin{align}
+D^{*}(\mathbf{x})=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}
+\label{D_opt}
+\end{align}
+
+Replacing (\ref{D_opt}) in (\ref{D_loss})
+
+\begin{align*}
+\mathcal{L}(G)&=\max_{D}\mathcal{L}(D,G)\\
+&=-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim g}\log D^{*}(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D^{*}(G(\mathbf{z})))}\\
+&=-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim p}\left[\log\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}\right]-\frac{1}{2}\mathbb{E}_{\mathbf{x}\sim q_{\theta}}\left[\log{\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}}\right]\\
+\end{align*}
+
+Goodfellow et al. (2014) also shows that the global minimum of $\mathcal{L}(G)$ corresponds to $-\log 4$, and it is obtained if and only if $p=q_{\theta}$. We also can reformulate 
+
+\begin{align*}
+\mathcal{L}(G)&=-\log(4)+KL\left(p||\frac{p+q_{\theta}}{2}\right)+KL\left(q_{\theta}||\frac{p+q_{\theta}}{2}\right)\\
+&=-log(4)+2\times JSD(p||q_{\theta})
+\end{align*}
+
+where $KL$ is the Kullback-Leibler divergence and $JSD$ is the Jensen-Shannon divergence. The $JSD$ measures the similarity between two probability distributions. Unlike the $KL$, the is symmetric and it is finite. In principle, as pointed by Nowosin et al. (2016), if there are sufficient training samples and  $q_{\theta}$ is rich enough, $p$ can be properly approximated.
+In practice, the best behavior is obtained by using simultaneous gradient descent, with one step for each player.
+The adeversarial structure of the algorithm it becomes difficult to judge if the model is actually training. Different approaches have been proposed to such as annealed importance sampling Wu et al. (2016), use of empirical distance metric such as the MMD (Sutherland et al., 2016) or the Wasserstein distance. 
+
+\subsection{Problems......}
+
+This is still a non-convex optimization problem. Additionally, the theoretcal results exposed are in a functional space. In practice, convergence is not always possible. Function $G$ imposes limitations on $q_{\theta}$ and we optimize the parameters $\theta$ rather than $q_{\theta}$. 
+
+Mode collapse is empirically observed when the generator is optimized for several iterations while keeping the discrimitor fixed. 
+Dificulty reaching convergence. 
+
+therefore, the problem can be stated as minimizing Jensen Shannon divergence between the data and the model distribution, and that the game converges to its equilibrium if the optimization is done in function space. In practice, we do not know the distributions of the DGP or the model, and the discriminator and the generator are deep neural networks and the updates are made in parameter space, so these results, which depend on convexity, do not apply.
+
+
+
+Originally, GANs were stated as a minimax game. In practice the generator objective function has been in formulated in different ways in order to achive a stronger gradient that allows to improve the odds of convergence. 
+
+Nowozin et al.(2016) ...
+
+\begin{align*}
+\mathcal{L}^{G}(\theta)=\mathbb{E}_{\mathbf{z}}\log{D(G(\mathbf{z}))}
+\end{align*}
+
+This last objective function for the generator provides a stronger gradient, and allows the algorithm to converge faster, when it does converge. The problem is that the connection with the Jenses-Shanon divergene does not exist anymore, and there is no theoretical support for the improved procedure. 
+
+
+\subsection{Divergence minimization}
+
+Generative Adversarial Netwoerdks enerative 
+Different alternatives has been
+f-divergence represents a different alternative and is associated with integrated bayes risk. 
+
+Let $f:\mathbb{R}_{+}\rightarrow\mathbb{R}$ be a convex, semi-continuos function with $f(1)=0$. We have that 
+
+\begin{align}
+D_{f} = \int{q_{\theta}(\mathbf{x})}f\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)d\mathbf{x}
+\label{D_f}
+\end{align}
+
+Let $f^{*}$ be the convex conjugate of $f$,
+
+\begin{align}
+f^{*}(t)=\sup_{u\in \text{dom}_{f}}[ut-f(u)]
+\label{conv_conj}
+\end{align}
+
+Therefore 
+
+\begin{align}
+f(u)=\sup_{t\in \text{dom}_{f^{*}}}[tu-f^{*}(t)].
+\label{conj}
+\end{align}
+
+Substituing (\ref{conj}) in (\ref{D_f}), we obtain
+\begin{align*}
+D_{f} = \int{q_{\theta}(\mathbf{x})}\sup_{t\in \text{dom}_{f^{*}}}\left\{t\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}-f^{*}(t)\right\}d\mathbf{x}
+\end{align*}
+
+Let $T\in\mathcal{T}:\mathcal{X}\rightarrow\mathbb{R}$, then
+
+\begin{align}
+D_{f} &= \int_{\mathcal{X}}{q_{\theta}(\mathbf{x})}\sup_{T\in\mathcal{T}}\left\{T(\mathbf{x})\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}-f^{*}(T(\mathbf{x}))\right\}d\mathbf{x}\nonumber\\
+&\geq \sup_{T\in\mathcal{T}}\left(\int_{\mathcal{X}}p(\mathbf{x})T(\mathbf{x})d\mathbf{x}-\int_{\mathcal{X}}q_{\theta}(\mathbf{x})f^{*}(T(\mathbf{x}))d\mathbf{x}\right)\nonumber\\
+&= \sup_{T\in\mathcal{T}}\left(\mathbb{E}_{p}[T(\mathbf{x})]-\mathbb{E}_{q_{\theta}}[f^{*}(T(\mathbf{x}))]\right)
+\label{D_fb}
+\end{align}
+
+By taking the derivative of (\ref{D_fb}) with respect to $T$, we have that the bound is tight for 
+
+\begin{align*}
+T^{*}=f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)
+\end{align*}
+
+Therefore, the supremum in (\ref{D_fb}) becomes over the density ratio $\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}$. As pointed by Mohamed and Lakshminarayanan (2017), the objetive is to minimize the negative lower bound, i.e.
+
+\begin{align*}
+J=\mathbb{E}_{p}\left[-f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right]+\mathbb{E}_{q_{\theta}}\left[f^{*}\left(f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right)\right]
+\end{align*}
+
+
+\subsubsection{Kullback-Leibler divergence}
+
+
+\subsubsection{Reverse Kullback-Leibler divergence
+
+Let $f(u)=-log(u)$. Then, $f'(u)=-\frac{1}{u}$. The covex conjugate corresponds to
+
+\begin{align}
+f^{*}(t)=\sup_{u\in \text{dom}_{f}}[ut+\log(u)]
+\end{align}
+
+Deriving with respect to $u$ and equalizing to cero we obtain
+
+\begin{align*}
+t+\frac{1}{u}&=0\\
+u&=-\frac{1}{t}
+\end{align*}
+
+therefore,
+\begin{align}
+f^{*}(t)=-1-\log(-t)
+\end{align}
+
+with domain in $\mathbb{R}_{-}$. We have that
+
+\begin{align}
+f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)=-\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}
+\label{t_log}
+\end{align}
+
+then,
+
+\begin{align*}
+J=\mathbb{E}_{p}\left[-\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]+\mathbb{E}_{q_{\theta}}\left[-1-\log\left(-\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right)\right]
+\end{align*}
+
+Assuming the discriminator is closer to the optimality, i.e. 
+
+\begin{align}
+D^{*}(\mathbf{x})=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}
+\label{D_opt}
+\end{align}
+
+then 
+
+\begin{align*}
+KL(q_{\theta}||p) &=\mathbb{E}_{q_{\theta}}\left[\log \frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]\\
+&=\mathbb{E}_{q_{\theta}}\left[\log \frac{1-D^{*}(\mathbf{x})}{D^{*}(\mathbf{x})}\right]\\
+&\approx \mathbb{E}_{q_{\theta}}\left[\log \frac{1-D(\mathbf{x})}{D(\mathbf{x})}\right]
+\end{align*}
+
+
+The KL divergence
+
+\begin{align*}
+D_{KL}(g||\hat{g}) &= \int{p(\mathbf{x})\log\frac{p(\mathbf{x})}{r(\mathbf{x})q_{\theta}(\mathbf{x}))}}+\int{(r(\mathbf{x})-p(\mathbf{x}))d\mathbf{x}}\\
+      &= \int{p(\mathbf{x})\log\frac{p(\mathbf{x})}{\hat{g}(\mathbf{x})}}+\int{(r(\mathbf{x})-p(\mathbf{x}))d\mathbf{x}}
+\end{align*}
+
+Therefore,
+
+\begin{align*}
+\mathcal{L} &= \mathbb{E}_{g}[\log p(\mathbf{x}) - \log r(\mathbf{x}) - \log q_{\theta}(\mathbf{x})]+\mathbb{E}_{q_{\theta}}[r(\mathbf{x})-1]
+\end{align*}
+
+
+\subsection{ Divergence effect on results}
+
+<!-- KL -->
+<!-- (pkq) or D -->
+<!-- KL -->
+<!-- two Gaussians for p, and a single Gaussian for q. The choice of which direction of the example, we use a mixture of two Gaussians as the data distribution, and a single -->
+<!-- KL divergence to use is problem-dependent. Some applications require an approximation -->
+<!-- Gaussian as the model family. Because a single Gaussian cannot capture the true -->
+<!-- that usually places high probability anywhere that the true distribution places high -->
+<!-- data distribution, the choice of divergence determines the tradeo↵ that the model -->
+<!-- probability, while other applications require an approximation that rarely places high -->
+<!-- makes. On the left, we use the maximum likelihood criterion. The model chooses to probabilaivteyragneyowuhtetrhethwaotmthodeets,rusoetdhiastritbupltaicoensphilgahcepsrolobwabiplirtoyboanbbiloityh.oTfhtheemch.oiOcneofthe -->
+<!-- direction of the KL divergence reflects which of these considerations takes priority for each -->
+<!-- the right, we use the reverse order of the arguments to the KL divergence, and the -->
+<!-- model chooses to capture only one of the two modes. It could also have chosen the -->
+<!-- application. (Left)The effect of minimizing DKL(pkq). In this case, we select a q that has -->
+<!-- other mode; the two are both local minima of the reverse KL divergence. We can -->
+<!-- high probability where p has high probability. When p has multiple modes, q chooses to think of DKL(pdatakpmodel) as preferring to place high probability everywhere that the -->
+<!-- blur the modes together, in order to put high probability mass on all of them. (Right)The data occurs, and DKL(pmodelkpdata) as preferrring to place low probability wherever -->
+<!-- effect of minimizing D (qkp). In this case, we select a q that has low probability where the data does notKoLccur. From this point of view, one might expect DKL(pmodelkpdata) -->
+<!-- p has lowto ypireoldbamboirleitvyi.suWallhyepnlepashinagssmamupltleips,lebemcaoudsesthtehmatodaerlewsiullffinoctiecnhtoloysewtoidgeelnyersaetpearated, unusual samples lying between modes of the data generating distribution. -->
+
+\subsubsection{Other Approuches Wasserstein Gans}
+
+
+\section{GANs and Bayesian Inference}\label{gans_bi}
+
+When introducing the GANs framework, we define $\mathbf{z}$ as the input variable variable and $\mathbf{x}$ as an observation. $\mathbf{z}$ is sampled from some prior distribution, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from some unknown distribution $q_{\theta}$. In this setting $G$ is a (deep) neural network. GANs produce high quality samples but with the lack an inference mechanism. 
+
+From a probabilistic perspective, $\mathbf{z}$ is a latent variable with prior density $q(\mathbf{z})$. We can think of $\mathbf{x}$ as being sampled from  $p_{\theta}(\mathbf{x}|\mathbf{z})$. The joint density is given by $p(\mathbf{x}, \mathbf{z}) = p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})$.The posterior density is
+
+\begin{align*}
+p(\mathbf{z}|\mathbf{x})=\frac{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})}{p(\mathbf{x})}
+\end{align*}
+
+Variational inference implies approximating the true posterior $p(\mathbf{z}|\mathbf{x})$ through a family of distributions $q_{\gamma}(\mathbf{z}|\mathbf{x})$ (denoted $q_{\gamma}(\mathbf{z})$) that depend on a certain set of parameters $\gamma$. The Kullback-Leibler divergence allows to measure the information loss when using $q_{\gamma}(\mathbf{z}|\mathbf{x})$ to approach the true posterior.
+
+In general, likelihood-free inference methods estimate parameters for which the differente between simulated and observed data is small. The main problem is about finding some relation between the parameters affect the relation between the data generating process and the model to approximate it. Inference in GANs is not well understood.  At this point, it is worth investigating how GANs can be used to approximate variational inference in the context of implicit models. First, we start with a review of Variational Autoencoders. 
+
+\subsection{Variational Autoencoders} \label{vae_sec}
+
+We have a set of observations from a unknown distribution $p$ in some space $\mathcal{X}$. The objective is to maximize the log-likelihood $\mathbb{E}_{x\sim p}[\log p(\mathbf{x})]$. We have that
+
+\begin{align*}
+p(\mathbf{x})=\int{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})d\mathbf{z}}
+\end{align*}
+
+\begin{align*}
+\log{p(x)}&=\log\int p(\mathbf{x},\mathbf{z})d\mathbf{z}\\
+&=\log\int p(\mathbf{x},\mathbf{z})\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}d\mathbf{z}\\
+&=\log\left(\mathbb{E}_{z\sim q_{\gamma}}\left[\frac{p(\mathbf{x},\mathbf{z})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}\right]\right)\\
+&\geq \mathbb{E}_{z\sim q_{\gamma}}[\log{p(\mathbf{x},\mathbf{z})}-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\\
+&= \mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}+\log q(\mathbf{z})-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\\
+&=\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))
+\end{align*}
+
+This last expression is known as the Evidence Lower Bound (ELB). We need to maximize the ELBO. The Kullback-Liebler divergence between true posterior and the aproximation is given by 
+
+\begin{align}
+D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))&=\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{p(\mathbf{z}|\mathbf{x})}\right]\nonumber\\
+&=\mathbb{E}_{z\sim q_{\gamma}}[\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}-\log{p(\mathbf{z}|\mathbf{x})}]\nonumber\\
+&=\mathbb{E}_{z\sim q_{\gamma}}[\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}-\log{p_{\theta}(\mathbf{x}|\mathbf{z})}-\log{q(\mathbf{z})}]+\log{p(\mathbf{x})}\nonumber\\
+&=-(\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z})))+\log{p(\mathbf{x})}
+\label{kl_vae}
+\end{align}
+
+It is not possible to minimize the KL divergence, however, minimizing the KL divergence is equivalent to maximizing the ELB. From equation (\ref{kl_vae}) we obtain
+
+\begin{align}
+D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))-\log{p(\mathbf{x})}&=-(\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z})))
+\label{kl_vae2}
+\end{align}
+
+The LHS of equation (\ref{kl_vae2}) is the expression that we want to minimize. This is achived by increing the log-likelihood, and decreasing the divergence between the true posterior density of the latent variable and its approximate posterior $q_{\gamma}(\mathbf{z}|\mathbf{x})$. The divergence will go to cero as long as $q_{\gamma}$ has enough capacity. The RHS is the ELB which is something we can optimize using stochastic gradient descent. The divergence $D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))$ measures the information gain when $\mathbf{z}$ comes from $q_{\gamma}(\mathbf{z}|\mathbf{x})$ rather than $q(\mathbf{z})$. In general, $p(\mathbf{x})$ does not have an analytic representation. It can be numerically approximated using monte carlo simulation, i.e.
+
+\begin{align*}
+p(\mathbf{x})\approx \frac{1}{n}\sum p_{\theta}(\mathbf{x}|\mathbf{z}),
+\end{align*}
+
+however, this expresion might be computationally expensive to compute, paticularly in high dimensions. Many values of $\mathbf{z}$ do not contribute to $p(\mathbf{x})$. VAE attempt to estimate a density function $q_{\gamma}(\mathbf{z}|\mathbf{x})$ (denoted $q_{\gamma}(\mathbf{z})$) that comprises the $\mathbf{z}$ values that are more likely to generate $\mathbf{x}$. Therefore, calculating $\mathbb{E}_{z\sim q_{\gamma}}[p_{\theta}(\mathbf{x}|\mathbf{z})]$ becomes an easy task. 
+
+In this setting we perform maximun likelihood by 
+
+\begin{align}
+\min_{\theta}\min_{\gamma}\mathbb{E}_{x\sim p}\left[D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))-\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]\right]
+\label{ml_vae}
+\end{align}
+
+
+\subsubsection{Variational Autoencoders} \label{vae_sec}
+
+We have a set of observations from a unknown distribution $p$ in some space $\mathcal{X}$. In this case, the goal is to learn a model $q_{\theta}$ to sample from, and that is as similar as possible to the true data generating process. Let $\mathbf{z}$ be a vector of latent variables with probability density function $q(\mathbf{z})$, and let $G:\Theta\times\mathcal{Z}\rightarrow \mathcal{X}$ be a family of deterministic functions parameterized by $\theta\in\Theta$. We have that 
+
+
+Variational Autoencoders (VAE) assume $p_{\theta}(\mathbf{x}|\mathbf{z}) = N(\mathbf{x} | G_{\theta}(\mathbf{z}), \sigma^{2}\mathbb{I})$, where $\mathbb{I}$ is the indentity matrix. In this setting, the main requirements are that $p_{\theta}(\mathbf{x}|\mathbf{z})$ is continuos in $\theta$ and tracktable. 
+
+Variational autoencoders $\mathbf{z}$ are drawn from a simple distribution, e.g. $N (0, \mathbb{I})$. This makes sense since a d-dimensional distribution can be generated by a set of d normally distributed random variables mapped  them through a deterministic function such as a deep neural network. Given a set of observations of $\mathbf{x}$, our goal is to maximize the ELB.  
+
+Assuming $q_{x}(\mathbf{z})$ is $N(\mu_{x}, \Sigma_{x})$, then $D_{KL}(q_{x}(\mathbf{z})|| q(\mathbf{z}))$ corresponds to the Kullback-Liebler divergence between two multivariate normal distributions which has closed-form solution. This divergence expression takes sample of $\mathbf{x}$ as input and somehow works as an encoder. On the other hand, we approximate $\mathbb{E}_{z\sim q_{\gamma}}[\log p_{\theta}(\mathbf{x}|\mathbf{z})]$ using one sample of $\mathbf{z}$. In order to train the model we need to calculate the gradient of $\log p_{\theta}(\mathbf{x}|\mathbf{z}) + D_{KL}(q_{x}(\mathbf{z})|| q(\mathbf{z}))$ and average over samples of $\mathbf{z}$ and $\mathbf{x}$. 
+
+For the implementation, at some point the algorithm  samples from  $q_{x}(\mathbf{z}) = N(\mu_{x}, \Sigma_{x})$. For  stochastics gradient descent to work, this is reparametirized such that $\mathbf{z}= \mu_{x}+\Sigma^{1/2}_{x}\epsilon$ where $\epsilon\sim N(0,\mathbb{I})$.
+
+\subsubsection{Variational Autoencoders Extension using GANs}
+Kingma and Welling  (2013) assume $q_{\gamma}(\mathbf{z}|\mathbf{x})$ is a Gaussian distribution with mean and variance represented by neural networks depending on $\mathbf{x}$. This framework has the advantage of being a tracktable model, however it imposes restrictions on the posterior of $\mathbf{z}$ that potentially lead to less quality samples coming from the generator.
+
+Theis et al. (2015) argue that VAEs distribute probability mass diffusely over the data space, therefore they fail to generate sharp samples. This has been particularly analyzed when used to generate images. Larsen et al. (2015) and Mescheder et al. (2017) assert that VAEs fail because the inference model is unable to capture the complexities of true posterior distribution. 
+
+<!-- Frey et al. (2016) propose the “adversarial autoencoder” (AAE), which is a proba- bilistic autoencoder that uses the recently proposed generative adversarial networks (GAN) to perform variational inference by matching the aggregated posterior of the hidden code vector of the autoencoder with an arbitrary prior distribution. Matching the aggregated posterior to the prior ensures that generating from any part of prior space results in meaningful samples. As a result, the decoder of the adversarial autoencoder learns a deep generative model that maps the imposed prior to the data distribution. -->
+
+<!-- Geiger et al. (2017) propose an extension of the VAE framework in which the    -->
+
+
+From equation (\ref{kl_vae2}) we know that the objective is to minimize the negative evidence lower bound,
+\begin{align}
+\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{q(\mathbf{z})}\right]-\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]\right]\label{kl_vae3}
+\end{align}
+
+The discriminator cost function is given by
+
+\begin{align*}
+\mathcal{L}^{D}&=-\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}[\log D(\mathbf{z},\mathbf{x})]+\mathbb{E}_{z\sim q}[\log (1- D(\mathbf{z}, \mathbf{x}))]\right]\\
+&=-\mathbb{E}_{x\sim p}\left[\mathbb{E}_{\epsilon}[\log D(G(\epsilon,\mathbf{x}),\mathbf{x})]+\mathbb{E}_{z\sim q}[\log(1- D(\mathbf{z},\mathbf{x}))]\right]
+\end{align*}
+
+The (encoder) generator loss function is given by
+
+\begin{align*}
+\mathcal{L}^{G}&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log{\frac{D(\mathbf{z},\mathbf{x})}{1- D(\mathbf{z},\mathbf{x})}}-\log{p_{\theta}(\mathbf{x}|\mathbf{z})}\right]\right]\\
+&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{\epsilon}\left[\log{\frac{D(G(\epsilon,\mathbf{x}),\mathbf{x})}{1- D(G(\epsilon,\mathbf{x}),\mathbf{x})}}-\log{p_{\theta}(\mathbf{x}|G(\epsilon,\mathbf{x}))}\right]\right]
+\end{align*}
+
+In this case, we train the discriminator $D$ to receive a pair $(\mathbf{z},\mathbf{x})$, where $\mathbf{x}$ is an observed datapoint and $\mathbf{z}$ comes either from its prior or the posterior density. The generator loss function approximates the expression in equation (\ref{kl_vae3}). Notice that $\mathcal{L}^{G}$ also depends on $p_{\theta}(\mathbf{x}|\mathbf{z})$, hence, at each iteration the loss function needs to be minimized with respect to the set of parameters $\theta$.
+
+Dumoulin et al. (2016) propose a different approach. Assume 
+
+\begin{align}
+\mathbf{E}_{x\sim p}[D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))]&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{p(\mathbf{z}|\mathbf{x})}\right]\right]\nonumber\\
+&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})p(\mathbf{x})}{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})}\right]\right]
+\end{align}
+
+The discriminator cost function is given by
+
+\begin{align*}
+\mathcal{L}^{D}&=-\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}[\log D(\mathbf{z},\mathbf{x})]\right]+\mathbb{E}_{x\sim p_{\theta}}\left[\mathbb{E}_{z\sim q}[\log{(1- D(\mathbf{z}, \mathbf{x}))]}\right]\\
+&=-\mathbb{E}_{x\sim p}\left[\mathbb{E}_{\epsilon}\log [D(G(\epsilon,\mathbf{x}),\mathbf{x})]\right]+\mathbb{E}_{x\sim p_{\theta}}\left[\mathbb{E}_{z\sim q}[\log{(1- D(\mathbf{z},\mathbf{x}))]}\right]
+\end{align*}
+
+The (encoder) generator loss function is given by
+
+\begin{align*}
+\mathcal{L}^{G}&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log{\frac{D(\mathbf{z},\mathbf{x})}{1- D(\mathbf{z},\mathbf{x})}}\right]\right]\\
+&=\mathbb{E}_{x\sim p}\left[\mathbb{E}_{\epsilon}\left[\log{\frac{D(G(\epsilon,\mathbf{x}),\mathbf{x})}{1- D(G(\epsilon,\mathbf{x}),\mathbf{x})}}\right]\right]
+\end{align*}
+
+
+\section{References}
+
+* Dumoulin, Vincent, Belghazi, Ishmael, Poole, Ben, Lamb, Alex, Arjovsky, Martin, Mastropietro, Olivier, and Courville, Aaron. Adversarially learned inference. arXiv preprint arXiv:1606.00704, 2016.
+
+* Hinton, G. E., Osindero, S., and Teh, Y. A fast learning algorithm for deep belief nets. Neural Computation, 18, 1527–1554, 2006.
+
+* Kingma, D. P. Fast gradient-based inference with continuous latent variable models in auxiliary form. Technical report, arxiv:1306.0733, 2013.
+
+* Larsen, Anders Boesen Lindbo, Sønderby, Søren Kaae, and Winther, Ole. Autoencoding beyond pixels using a learned similarity metric. arXiv preprint arXiv:1512.09300, 2015.
+
+* Lucas Theis, Aron van den Oord, and Matthias Bethge. A note on the evaluation of generative models. arXiv preprint arXiv:1511.01844, 2015.
+
+* Frey, Brendan, Goodfellow, Ian, Jaitly, Navdeep, Makhzani, Alireza, Shlens, Jonathon. Adversarial Autoencoders. arXiv preprint arXiv:1511.05644v2, 2016.  
+
+* Geiger, Andreas, Mescheder, Lars, Nowozin, Sebastian. Adversarial Variational Bayes: Unifying Variational Autoencoders and Generative Adversarial Networks. arXiv preprint arXiv:1701.04722v2, 2017.
+
+* Van den Oord, Aaron, Kalchbrenner, Nal, and Kavukcuoglu, Koray. Pixel recurrent neural networks. arXiv preprint arXiv:1601.06759, 2016a.
+
+* Van den Oord, Aaron, Dieleman, Sander, Zen, Heiga, Simonyan, Karen, Vinyals, Oriol, Graves, Alex, Kalchbrenner, Nal, Senior, Andrew, and Kavukcuoglu, Koray. Wavenet: A generative model for raw audio. arXiv preprint arXiv:1609.03499, 2016b.
