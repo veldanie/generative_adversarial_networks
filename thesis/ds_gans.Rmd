@@ -45,7 +45,7 @@ setwd( "/Users/veldanie/Documents/bgse/GANs/thesis")
 \vspace{50pt}
 
 \begin{abstract}
-Generative adversarial networks or GANs are implicit generative models that define a neural network which takes a random vector as input and returns a sample from a probability distribution. In this setting, training is performed through a discriminative neural network that estimates the probability that a sample is observed rather than generated. The goal of this master thesis is to understand the training process of GANs. To do so, we analyze different objective functions and ilustrate their the advantages and disadvantages by performing simple experiments. We also explore how adversarial networks can be used to approximate Bayesian inference in probabilistic models and establish a connection between GANs and Variational Autoencoders.
+Generative adversarial networks or GANs are implicit generative models that define a neural network which takes a random vector as input and returns a sample from a probability distribution. In this setting, training is performed through a discriminative neural network that estimates the probability that a sample is observed rather than generated. The goal of this master thesis is to understand the training process of GANs. To do so, we analyze different objective functions and illustrate their the advantages and disadvantages by performing simple experiments. We also explore how adversarial networks can be used to approximate Bayesian inference in probabilistic models and illustrate a connection between GANs and Variational Autoencoders.
 \end{abstract}
 
 
@@ -60,13 +60,13 @@ Generative adversarial networks or GANs are implicit generative models that defi
 
 \section{Introduction}
 
-Given a set of observations from a data generating process with unknown distribution $p$, a generative model learns another probability distribution $q_{\theta}$ that represents $p$. There are cases in which $q_{\theta}$ has an explicit parametric form and it is posible to specify a log-likelihood function $\log q_{\theta}(\mathbf{x})$ that depends on a set of parameters $\theta$. In an *implicit generative model*, the parametric representation of $q_{\theta}(\mathbf{x})$ is unknown, however it is possible to generate samples from it.
+Given a set of observations from a data generating process with unknown distribution $p$, a generative model learns another probability distribution $q_{\theta}$ that represents $p$. There are cases in which $q_{\theta}$ has an explicit parametric form and it is possible to specify a log-likelihood function $\log q_{\theta}(\mathbf{x})$ that depends on a set of parameters $\theta$. In an *implicit generative model*, the parametric representation of $q_{\theta}(\mathbf{x})$ is unknown, however it is possible to generate samples from it.
 
-Generative adversarial networks or GANs are a type of algorithms for unsupervised learning introduced by Goodfellow et al. (2014). GANs are implicit generative models that define a scheme to produce samples from a target distribution without a explicit likelihood function. To do so, GANs specify a feedforward neural network in which the input is a vector of random numbers passed through the layers of the network. Its output is a sample from the desired distribution. Training is performed through an auxiliary discriminative neural network that estimates the probability that a sample comes from the training set and has not been generated.
+Generative adversarial networks or GANs are a type of algorithms for unsupervised learning introduced by Goodfellow et al. (2014). GANs are implicit generative models that define a scheme to produce samples from a target distribution without a explicit likelihood function. To do so, GANs specify a feed-forward neural network in which the input is a vector of random numbers passed through the layers of the network. Its output is a sample from the desired distribution. Training is performed through an auxiliary discriminative neural network that estimates the probability that a sample comes from the same distribution as the training set and has not been observed.
 
-GANs has gained a lot of atention due to their capacity to produce data from high dimensional complex probabilily distributions. Practical applications include images, video and speech generation. However, solving this problem is not necesarily an easy task. Despite the theory that justify the procedure, in practice, convergence is not guaranteed. Additionally, for diferent reasons, some of which are discussed in this document, the specification objective function can lead to low quality samples.
+GANs have gained a lot of attention due to their capacity to produce data from high dimensional complex probability distributions. Practical applications include images, video and speech generation. However, solving this problem is not necessarily an easy task. Despite the theory that justify the procedure, in practice, finding an optimal solution is not guaranteed. Additionally, the objective function to solve the problem can be posed in different ways, and this represents a challenge given the implications on the data generated by the algorithm. A specific objective function definition can lead to low quality samples.
 
-Section \ref{gm} provides a general overview of generative models, and in particular, implicit generative models. Section \ref{gans} dicusses GANs in detail, the training procedure and the advantages and disadvantages of different specifications of the objective function. Finally, section \ref{gans_bi} discusses how GANs can improve Variational Autoencoders (VAEs) and ilustrates an application of GANs to estimate the posterior density of latent variables within a bayesian framework. 
+Section \ref{gm} provides a general overview of generative models, and in particular, implicit generative models. Section \ref{gans} discusses GANs in detail, the training procedure and the advantages and disadvantages of different specifications of the objective function. Finally, Section \ref{gans_bi} discusses how GANs can improve Variational Autoencoders (VAEs) and illustrates an application of GANs to estimate the posterior density of latent variables within a Bayesian framework. 
 
 
 <!----------------------------------------------------------->
@@ -75,7 +75,7 @@ Section \ref{gm} provides a general overview of generative models, and in partic
 
 \section {Generative Models}\label{gm}
 
-A generative model allows to produce random data from a certain probability distribution given a set of parameters. The task is to device a mechanism to generate samples with the same distribution of a given training dataset. If the density function $q_{\theta}$ has an explicit parametric representation, we can estimate the parameters $\theta$ by performing maximum likelihood. However, tracktability might come at the cost of the model not being able to capture the complexities of the data. One class of models with known explicit density function are neural autoregressive generative models where joint probabilities correspond neural neuworks as products of conditional distributions, e.g. wavenet and PixelRNN, generative models for audio and images respectively (see Van den Oord et al. (2016a, 2016b)). In this case,
+A generative model allows to produce random data from a certain probability distribution given a set of parameters. The task is to device a mechanism to generate samples with the same distribution of a given training dataset. If the density function $q_{\theta}$ has an explicit parametric representation, we can estimate the parameters $\theta$ by performing maximum likelihood. However, tractability might come at the cost of the model not being able to capture the complexities of the data. One class of models with known explicit density function are neural autoregressive generative models where joint probabilities correspond neural networks as products of conditional distributions, e.g. Wavenet and PixelRNN, generative models for audio and images respectively (see Van den Oord et al. (2016a, 2016b)). In this case,
 
 \[
 q_{\theta}(\mathbf{x})=\prod_{i=1}^{n}{q_{\theta}(x_{i}|x_{1},...,x_{i-1})}
@@ -83,13 +83,13 @@ q_{\theta}(\mathbf{x})=\prod_{i=1}^{n}{q_{\theta}(x_{i}|x_{1},...,x_{i-1})}
 
 Some of the practical difficulties of this type of models is the computational cost of generating one data point and the impossibility to paralellize the process. 
 
-On the other hand, there exist a class of models for which the density function of the data generating process is intractable and needs to be approximated. One prominent example are variational autoencoders (Kingma (2013)), where a learning algorithm maximizes a tracktable lower bound for the log-likelihood of the data generating process (see section \ref{vae_sec}). Another example are stochastic recurrent neural network (Boltzmann machines) in which a learning algorithm generates samples from a markov chain to train the model.
+On the other hand, there exist a class of models for which the density function of the data generating process is intractable and needs to be approximated. One prominent example are Variational Autoencoders (Kingma (2013)), where a learning algorithm maximizes a tractable lower bound for the log-likelihood of the data generating process (see Section \ref{vae_sec}). Another example are stochastic recurrent neural network (Boltzmann machines) in which a learning algorithm generates samples from a Markov chain to train the model.
 
 \subsection{Implicit Generative Models}
 
 Suppose the goal is to train a generative model, i.e. we want to learn $p(\mathbf{x})$ with support in some space $\mathcal{X}\subseteq\mathbb{R}^{m}$. $\mathbf{x}$ can be a high dimensional random variable with complex dependencies across dimensions that are captured by a set of latent variables. Let $\mathbf{z}$ be a vector of latent variables in some space $\mathcal{Z}\subseteq\mathbb{R}^{d}$, with density function $q(\mathbf{z})$. On the other hand, there is a family of deterministic functions $G_{\theta}(\mathbf{z})$, parameterized by $\theta\in\Theta$, such that $G:\mathcal{X}\times\Theta\rightarrow\mathcal{X}$. 
 
-Assuming we can sample from $q(\mathbf{z})$, we optimize the parameters $\theta$ such that $G_{\theta}(\mathbf{z})$ is able to generate data from another density $q_{\theta}$ that resembles the observed dataset. Therefore, as ilustrated by Mohamed and Lakshminarayanan (2017), for  $\mathbf{z}'\sim q(\mathbf{z})$, we have that
+Assuming we can sample from $q(\mathbf{z})$, we optimize the parameters $\theta$ such that $G_{\theta}(\mathbf{z})$ is able to generate data from another density $q_{\theta}$ that resembles the observed dataset. Therefore, as illustrated by Mohamed and Lakshminarayanan (2017), for  $\mathbf{z}'\sim q(\mathbf{z})$, we have that
 
 \begin{align*}
 \mathbf{x} = G(\mathbf{z}')
@@ -102,20 +102,20 @@ q_{\theta}(\mathbf{x})=\frac{\partial}{\partial x_{1}}...\frac{\partial}{\partia
 \label{inte}
 \end{align}
 
-If $G$ is invertible and $m=d$ we can recover the density of the generator. In general, $G$ can be non-linear and $d>m$ when using deep networks. The integral in (\ref{inte}) is intractable, therefore the log-likelihood function of the model is not available. Learning in this context relies on the hability of generating samples from the model and discriminating it from real data. 
+If $G$ is invertible and $m=d$ we can recover the density of the generator. In general, $G$ can be non-linear and $d>m$ when using deep networks. The integral in (\ref{inte}) is intractable, therefore the log-likelihood function of the model is not available. Learning in this context relies on the ability of generating samples from the model and discriminating it from real data. 
 
-Some generative models such as GANs and VAEs are supported on a neural networks that can be trained by stochastic gradient descent through backpropagation. However, when dealing with implicit model, it is not enterily clear how to define an appropiate loss function to learn. Several problems arise in practice, e.g. lack of convergence or fitting a generator that only produces samples from a few modes of a target multi-modal distribution.
+Some generative models such as GANs and VAEs are supported on a neural networks that can be trained by stochastic gradient descent through back-propagation. However, when dealing with implicit model, it is not entirely clear how to define an appropriate loss function to learn. Several problems arise in practice, e.g. lack of convergence or fitting a generator that only produces samples from a few modes of a target multi-modal distribution.
 
 
 \section {Generative Adversarial Networks (GANs)}\label{gans}
 
 Generative adversarial networks are a game between two players. The generator and the discriminator. The goal of the generator is to create samples that seem to come from the same distribution as the training data. The discriminator is a classifier that examines samples to determine whether they are real or fake. The discriminator is a typical supervised learning problem in which the samples have the label *real* or *fake*.  
 
-Let $\mathbf{z}$ be a latent variable and $\mathbf{x}$ a real observation. The discriminator $D$ is a function of $\mathbf{x}$ with parameters $\phi$, and the generator $G$ is a differentiable function of $\mathbf{z}$ with parameters $\theta$. Initally, $\mathbf{z}$ is sampled from some prior distribution $q$, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from $q_{\theta}$. 
+Let $\mathbf{z}$ be a latent variable and $\mathbf{x}$ a real observation. The discriminator $D$ is a function of $\mathbf{x}$ with parameters $\phi$, and the generator $G$ is a differentiable function of $\mathbf{z}$ with parameters $\theta$. Initially, $\mathbf{z}$ is sampled from some prior distribution $q$, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from $q_{\theta}$. 
 
-A set of $d$ random variables with normal distribution can generate any distribution as long as $G$ is sufficiently complex. In order for the support of $q_{\theta}$ to correspond to the full space of $\mathbf{x}$, the dimension of $\mathbf{z}$ to be the same as $\mathbf{x}$. In this context, we can draw samples from the model that are indistinguishables to the samples from the true data generating proces. 
+A set of $d$ random variables with normal distribution can generate any distribution as long as $G$ is sufficiently complex. In order for the support of $q_{\theta}$ to correspond to the full space of $\mathbf{x}$, the dimension of $\mathbf{z}$ to be the same as $\mathbf{x}$. In this context, we can draw samples from the model that are indistinguishable to the samples from the true data generating process. 
 
-GANs have atento due to their capacity to produce data from complex high dimensional distributios. Additionally, samples can be generated in parallel, which can improve the speed of the algorithm. Unlike other methods such as VAEs or Boltzman machines they do not depend an a variational bound or a markov chain process.
+GANs have attracted a lot of attention due to their capacity to produce data from complex high dimensional distributions. Additionally, samples can be generated in parallel, which can improve the speed of the algorithm. Unlike other methods such as VAEs or Boltzman machines they do not depend an a variational bound or a Markov chain process.
 
 \subsection{GANs Training}
 
@@ -179,7 +179,7 @@ In practice, the best behavior is obtained by using simultaneous gradient descen
 
 The problem, as posed by Goodfellow et al. (2014) can be stated as minimizing the Jensen Shannon divergence between the data and the model distribution. However, the game converges to its equilibrium if the optimization is performed in a functional space. In practice, we do not know the distributions of the data generating process or the model. The discriminator and the generator are deep neural networks which are optimized with respect to their parameters. This is a non-convex optimization problem and convergence is not always possible. Additionally, the specification of the generator $G$ imposes limitations on the random data that can be produced. 
 
-GANs do not naturally come with a likelihood function to be optimized and, because of the adversarial structure of the algorithm, it can be difficult to evaluate if the model is training in an appropiate way. Several problems arise in practice, e.g. the quality of the samples might be lower than expected. Suppose the real data comes from a multimodal distribution. It is common for GANs to generate samples from very few modes, even if the generator is a deep neural network with significant capacity. Another problem that appears in practical implementations is related to the vanishing gradient of the objective function. If this is the case, then as the discriminator improves, the generator worsen.  Different authors have propose different alternative specifications of the generator loss function in order the improve the odds of achiving convergence.   
+GANs do not naturally come with a likelihood function to be optimized and, because of the adversarial structure of the algorithm, it can be difficult to evaluate if the model is training in an appropriate way. Several problems arise in practice, e.g. the quality of the samples might be lower than expected. Suppose the real data comes from a multi-modal distribution. It is common for GANs to generate samples from very few modes, even if the generator is a deep neural network with significant capacity. Another problem that appears in practical implementations is related to the vanishing gradient of the objective function. If this is the case, then as the discriminator improves, the generator worsen.  Different authors have propose different alternative specifications of the generator loss function in order the improve the odds of achieving convergence.   
 
 Salimans et al. (2016) posit a variety of techniques to train GANs and achieve better results. Some of their ideas are based on experiments and empirical results and do not have a theoretical support, e.g. they reformulate the generator loss function as 
 
@@ -191,14 +191,14 @@ This last objective function provides a stronger gradient and allows the algorit
 
 \subsection{Divergence minimization}
 
-Generative Adversarial Networks define a mechanism to generate samples from some density $q_{\theta}$ that is as similar as posible to the training dataset distribution. Therefore, it is natural to think about training the generator to minimize a divergence measure between $q_{\theta}$ and the true density $p$. As explained before, in the original formulation Goodfellow et al. (2014) attempt to minimize the Jensen-Shanon divergence between the $q_{\theta}$ and $p$. Another reasonable objective would be to minimize the Kullback-Leibler divergence between the unknown data generating process and the generator's distribution $q_{\theta}$, even more so if we consider its connection to the problem of maximizing the likelihood function. Assuming both $q_{\theta}$ and $p$ are continuous and have the same support, the Kullback-Leibler divergence is given by
+Generative Adversarial Networks define a mechanism to generate samples from some density $q_{\theta}$ that is as similar as possible to the training dataset distribution. Therefore, it is natural to think about training the generator to minimize a divergence measure between $q_{\theta}$ and the true density $p$. As explained before, in the original formulation Goodfellow et al. (2014) attempt to minimize the Jensen-Shanon divergence between the $q_{\theta}$ and $p$. Another reasonable objective would be to minimize the Kullback-Leibler divergence between the unknown data generating process and the generator's distribution $q_{\theta}$, even more so if we consider its connection to the problem of maximizing the likelihood function. Assuming both $q_{\theta}$ and $p$ are continuous and have the same support, the Kullback-Leibler divergence is given by
 
 \begin{align}
 D_{KL}(q_{\theta}||p) &=\mathbb{E}_{q_{\theta}}\left[\log \frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]\\
 \label{d_kl}
 \end{align}
 
-Assuming the discriminator is closer to optimality and reorgaizing the terms we obtain
+Assuming the discriminator is closer to optimality and reorganizing the terms we obtain
 
 \begin{align}
 D^{*}(\mathbf{x})&=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}\nonumber\\
@@ -221,11 +221,11 @@ The generator loss can be formulated as
 \end{align*}
 
 
-It important to note that the KL divergence is not symmetric and we cannot expect the same result when optimizing $D_{KL}(q_{\theta}||p)$ rather than $D_{KL}(p||q_{\theta})$. In section \ref{div_effect} we explore in more detail the potential effects of incorporating in the algorithm different divergences.
+It important to note that the KL divergence is not symmetric and we cannot expect the same result when optimizing $D_{KL}(q_{\theta}||p)$ rather than $D_{KL}(p||q_{\theta})$. In Section \ref{div_effect} we explore in more detail the potential effects of incorporating in the algorithm different divergences.
 
 \subsubsection{f-Divergence}
 
-Nowozin et at. (2016) propose the class of f-divergences to train generative models. Let $f:\mathbb{R}_{+}\rightarrow\mathbb{R}$ be a convex, semi-continuos function with $f(1)=0$. The f-divergence between the generator density $q_{\theta}$ and the true density $p$ is 
+Nowozin et at. (2016) propose the class of f-divergences to train generative models. Let $f:\mathbb{R}_{+}\rightarrow\mathbb{R}$ be a convex, semi-continuous function with $f(1)=0$. The f-divergence between the generator density $q_{\theta}$ and the true density $p$ is 
 
 \begin{align}
 D_{f} = \int{q_{\theta}(\mathbf{x})}f\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)d\mathbf{x}
@@ -246,7 +246,7 @@ f(u)=\sup_{t\in \text{dom}_{f^{*}}}[tu-f^{*}(t)].
 \label{conj}
 \end{align}
 
-Substituing (\ref{conj}) in (\ref{D_f}), we obtain
+Substituting (\ref{conj}) in (\ref{D_f}), we obtain
 \begin{align*}
 D_{f} = \int{q_{\theta}(\mathbf{x})}\sup_{t\in \text{dom}_{f^{*}}}\left\{t\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}-f^{*}(t)\right\}d\mathbf{x}
 \end{align*}
@@ -310,7 +310,7 @@ then,
 
 \paragraph{Reverse Kullback-Leibler divergence}
 
-Let $f(u)=-log(u)$. Then, $f'(u)=-\frac{1}{u}$. The covex conjugate corresponds to
+Let $f(u)=-log(u)$. Then, $f'(u)=-\frac{1}{u}$. The convex conjugate corresponds to
 
 \begin{align}
 f^{*}(t)=\sup_{u\in \text{dom}_{f}}[ut+\log(u)]
@@ -370,13 +370,13 @@ q_{\theta}(\mathbf{x})=\int{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})d\math
 \label{marg}
 \end{align}
 
-In general, $q_{\theta}(\mathbf{x})$ does not have an analytic representation. It can be numerically approximated using monte carlo simulation, i.e.
+In general, $q_{\theta}(\mathbf{x})$ does not have an analytic representation. It can be numerically approximated using Monte Carlo simulation, i.e.
 
 \begin{align*}
 q_{\theta}(\mathbf{x})\approx \frac{1}{n}\sum p_{\theta}(\mathbf{x}|\mathbf{z}),
 \end{align*}
 
-however, this expresion might be computationally expensive, paticularly in high dimensions. Many values of $\mathbf{z}$ do not contribute to $p(\mathbf{x})$. Variational autoencoders  attempt to estimate a density function $q_{\gamma}(\mathbf{z}|\mathbf{x})$ that comprises the $\mathbf{z}$ values that are more likely to generate $\mathbf{x}$. Then $q_{\theta}(\bl{x})$ is approximated by $\mathbb{E}_{z\sim q_{\gamma}}[p_{\theta}(\mathbf{x}|\mathbf{z})]$.
+however, this expression might be computationally expensive, particularly in high dimensions. Many values of $\mathbf{z}$ do not contribute to $p(\mathbf{x})$. Variational Autoencoders  attempt to estimate a density function $q_{\gamma}(\mathbf{z}|\mathbf{x})$ that comprises the $\mathbf{z}$ values that are more likely to generate $\mathbf{x}$. Then $q_{\theta}(\bl{x})$ is approximated by $\mathbb{E}_{z\sim q_{\gamma}}[p_{\theta}(\mathbf{x}|\mathbf{z})]$.
 
 The main objective of the procedure is to maximize the log-likelihood $\mathbb{E}_{p}[\log q_{\theta}(\mathbf{x})]$. We have that
 
@@ -389,7 +389,7 @@ The main objective of the procedure is to maximize the log-likelihood $\mathbb{E
 &=\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))
 \end{align*}
 
-This last expression is known as the Evidence Lower Bound (ELB). Notice that the Kullback-Liebler divergence between true posterior and the aproximation is given by 
+This last expression is known as the Evidence Lower Bound (ELB). Notice that the Kullback-Leibler divergence between true posterior and the approximation is given by 
 
 \begin{align}
 D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))&=\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{p(\mathbf{z}|\mathbf{x})}\right]\nonumber\\
@@ -406,33 +406,33 @@ D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))-\log{q_{\the
 \label{kl_vae2}
 \end{align}
 
-The left-hand-side of equation (\ref{kl_vae2}) is the expression that we want to minimize. This is achived by increasing the log-likelihood, and decreasing the divergence between the true posterior density of the latent variable and its approximate posterior $q_{\gamma}(\mathbf{z}|\mathbf{x})$. The divergence will go to cero as long as $q_{\gamma}$ has enough capacity. The right-hand-side is the ELB which is something we can optimize using stochastic gradient descent. The divergence $D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))$ measures the information gain when $\mathbf{z}$ comes from $q_{\gamma}(\mathbf{z}|\mathbf{x})$ rather than $q(\mathbf{z})$. 
-In this setting we perform maximun likelihood by 
+The left-hand-side of equation (\ref{kl_vae2}) is the expression that we want to minimize. This is achieved by increasing the log-likelihood, and decreasing the divergence between the true posterior density of the latent variable and its approximate posterior $q_{\gamma}(\mathbf{z}|\mathbf{x})$. The divergence will go to cero as long as $q_{\gamma}$ has enough capacity. The right-hand-side is the ELB which is something we can optimize using stochastic gradient descent. The divergence $D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))$ measures the information gain when $\mathbf{z}$ comes from $q_{\gamma}(\mathbf{z}|\mathbf{x})$ rather than $q(\mathbf{z})$. 
+In this setting we perform maximum likelihood by 
 
 \begin{align}
 \min_{\theta}\min_{\gamma}\mathbb{E}_{p}\left[D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))-\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]\right]
 \label{ml_vae}
 \end{align}
 
-Variational Autoencoders assume $p_{\theta}(\mathbf{x}|\mathbf{z}) = N(\mathbf{x} | G(\mathbf{z}), \sigma^{2}\bl{I})$, where $\bl{I}$ is the indentity matrix. In this setting, the main requirement is that $p_{\theta}(\mathbf{x}|\mathbf{z})$ is continuos in $\theta$ and tracktable. The $\mathbf{z}$ values are typically drawn from a simple distribution, e.g. $N (0, \bl{I})$. 
+Variational Autoencoders assume $p_{\theta}(\mathbf{x}|\mathbf{z}) = N(\mathbf{x} | G(\mathbf{z}), \sigma^{2}\bl{I})$, where $\bl{I}$ is the identity matrix. In this setting, the main requirement is that $p_{\theta}(\mathbf{x}|\mathbf{z})$ is continuous in $\theta$ and tractable. The $\mathbf{z}$ values are typically drawn from a simple distribution, e.g. $N (0, \bl{I})$. 
 
-Kingma and Welling  (2013) assume $q_{\gamma}(\mathbf{z}|\mathbf{x})$ is a Gaussian distribution with mean and variance represented by neural networks depending on $\mathbf{x}$, i.e. $q_{\gamma}(\mathbf{z})\sim N(\mu_{\gamma}, \Sigma_{\gamma})$. Then $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))$ corresponds to the Kullback-Liebler divergence between two multivariate normal distributions which has closed-form solution. This divergence expression takes a sample $\mathbf{x}$ as input and somehow works as an encoder. On the other hand, we approximate $\mathbb{E}_{z\sim q_{\gamma}}[\log p_{\theta}(\mathbf{x}|\mathbf{z})]$ using one sample of $\mathbf{z}$. 
+Kingma and Welling  (2013) assume $q_{\gamma}(\mathbf{z}|\mathbf{x})$ is a Gaussian distribution with mean and variance represented by neural networks depending on $\mathbf{x}$, i.e. $q_{\gamma}(\mathbf{z})\sim N(\mu_{\gamma}, \Sigma_{\gamma})$. Then $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))$ corresponds to the Kullback-Leibler divergence between two multivariate normal distributions which has closed-form solution. This divergence expression takes a sample $\mathbf{x}$ as input and somehow works as an encoder. On the other hand, we approximate $\mathbb{E}_{z\sim q_{\gamma}}[\log p_{\theta}(\mathbf{x}|\mathbf{z})]$ using one sample of $\mathbf{z}$. 
 
-In order to train the model we need to calculate the gradient of $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))-\log p_{\theta}(\mathbf{x}|\mathbf{z})$ and average over samples of $\mathbf{z}$ and $\mathbf{x}$. At some point the algorithm samples from  $q_{\gamma}(\mathbf{z}) = N(\mu_{\gamma}, \Sigma_{\gamma})$. For  stochastics gradient descent to work, this is reparametirized such that $\mathbf{z}= \mu_{\gamma}+\Sigma^{1/2}_{\gamma}\epsilon$ where $\epsilon\sim N(0,\bl{I})$.
+In order to train the model we need to calculate the gradient of $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))-\log p_{\theta}(\mathbf{x}|\mathbf{z})$ and average over samples of $\mathbf{z}$ and $\mathbf{x}$. At some point the algorithm samples from  $q_{\gamma}(\mathbf{z}) = N(\mu_{\gamma}, \Sigma_{\gamma})$. For  stochastic gradient descent to work, this is reparameterized such that $\mathbf{z}= \mu_{\gamma}+\Sigma^{1/2}_{\gamma}\epsilon$ where $\epsilon\sim N(0,\bl{I})$.
 
 \subsection{Variational Autoencoders Extension using GANs}
 
-The model described in the previous section has the advantage of being tracktable. However, the assumption of $q_{\gamma}(\mathbf{z}|\mathbf{x})$ being  a normal density imposes restrictions on $\mathbf{z}$ that potentially lead to less quality samples coming from the generator.
+The model described in the previous section has the advantage of being tractable. However, the assumption of $q_{\gamma}(\mathbf{z}|\mathbf{x})$ being  a normal density imposes restrictions on $\mathbf{z}$ that potentially lead to less quality samples coming from the generator.
 
 Theis et al. (2015) argue that VAEs distribute probability mass diffusely over the data space, therefore they fail to generate sharp samples. This has been particularly analyzed when used to generate images. Larsen et al. (2015) and Mescheder et al. (2017) assert that VAEs fail because the inference model is unable to capture the complexities of true posterior distribution. 
 
-Mescheder et al. (2017) propose an extension of the VAE framework. Instead of assuming $q_{\gamma}(\mathbf{z}|\bl{x})$ has some parametric representation, they introduce an additional discriminator network to train variational autoencoders that sample from $q_{\gamma}(\mathbf{z}|\bl{x})$ by means of a generator neural network. From equation (\ref{kl_vae2}) we know that the objective is to minimize the negative evidence lower bound,
+Mescheder et al. (2017) propose an extension of the VAE framework. Instead of assuming $q_{\gamma}(\mathbf{z}|\bl{x})$ has some parametric representation, they introduce an additional discriminator network to train Variational Autoencoders that sample from $q_{\gamma}(\mathbf{z}|\bl{x})$ by means of a generator neural network. From equation (\ref{kl_vae2}) we know that the objective is to minimize the negative evidence lower bound,
 
 \begin{align}
 \mathbb{E}_{p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{q(\mathbf{z})}\right]-\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]\right]\label{kl_vae3}
 \end{align}
 
-In this case, we train a discriminator $D$ to receive a pair $(\mathbf{z},\mathbf{x})$, where $\mathbf{x}$ is an observed datapoint and $\mathbf{z}$ comes either from its prior or the posterior density. There is a generator $G$ that takes $\mathbf{x}$ and some noise $\epsilon$ and produces $\bl{z}$ from $q_{\gamma}(\mathbf{z}|\bl{x})$. The discriminator cost function is given by
+In this case, we train a discriminator $D$ to receive a pair $(\mathbf{z},\mathbf{x})$, where $\mathbf{x}$ is an observed data point and $\mathbf{z}$ comes either from its prior or the posterior density. There is a generator $G$ that takes $\mathbf{x}$ and some noise $\epsilon$ and produces $\bl{z}$ from $q_{\gamma}(\mathbf{z}|\bl{x})$. The discriminator cost function is given by
 
 \begin{align*}
 \mathcal{L}^{D}&=-\mathbb{E}_{p}\left[\mathbb{E}_{z\sim q_{\gamma}}[\log D(\mathbf{z},\mathbf{x})]+\mathbb{E}_{z\sim q}[\log (1- D(\mathbf{z}, \mathbf{x}))]\right]\\
@@ -468,7 +468,7 @@ Notice that $\mathcal{L}^{G}$ also depends on $p_{\theta}(\mathbf{x}|\mathbf{z})
 &=\mathbb{E}_{p}\left[\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})p(\mathbf{x})}{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})}\right]\right]\label{d_kl2}
 \end{align}
 
-The discriminator $D$ needs to be trained to distinguish between a pair $(\mathbf{z},\mathbf{x})$ where $\mathbf{x}$ is an observed datapoint and $\mathbf{z}$ comes from its posterior density, and a pair $(\mathbf{z}',\mathbf{x}')$ where $\mathbf{x}'$ comes from $p_{\theta}(\bl{x}|\bl{z})$ and  $\bl{z}'$ comes from the prior density. The loss function is given by
+The discriminator $D$ needs to be trained to distinguish between a pair $(\mathbf{z},\mathbf{x})$ where $\mathbf{x}$ is an observation and $\mathbf{z}$ comes from its posterior density, and a pair $(\mathbf{z}',\mathbf{x}')$ where $\mathbf{x}'$ comes from $p_{\theta}(\bl{x}|\bl{z})$ and  $\bl{z}'$ comes from the prior density. The loss function is given by
 
 \begin{align*}
 \mathcal{L}^{D}&=-\mathbb{E}_{p}\left[\mathbb{E}_{z\sim q_{\gamma}}[\log D(\mathbf{z},\mathbf{x})]\right]+\mathbb{E}_{ p_{\theta}}\left[\mathbb{E}_{z\sim q}[\log{(1- D(\mathbf{z}, \mathbf{x}))]}\right]\\
@@ -482,9 +482,25 @@ Based in equation (\ref{d_kl2}), the generator loss function is defined as
 &=\mathbb{E}_{p}\left[\mathbb{E}_{\epsilon}\left[\log{\frac{D(G(\epsilon,\mathbf{x}),\mathbf{x})}{1- D(G(\epsilon,\mathbf{x}),\mathbf{x})}}\right]\right]
 \end{align*}
 
-\subsection{Ridge Regression}
 
-Asum
+
+\section{Results}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rrr}
+\hline
+Generator Loss & Mean & Variance  \\
+\hline
+& 1.00269 & 0.30169 \\
+& 2.09541 & 0.95154 \\
+\hline
+\end{tabular}
+\caption{Network}
+\end{table}
+
+
+
 
 \newpage
 \section{References}
