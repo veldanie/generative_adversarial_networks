@@ -7,11 +7,18 @@ import seaborn as sns # for pretty plots
 from scipy.stats import norm
 from scipy.stats import multivariate_normal as mn
 
+plt.rcParams['axes.edgecolor'] = 'black'
+plt.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['axes.grid'] = False
+plt.rcParams['axes.linewidth'] = 1
+plt.rcParams['xtick.major.size'] = 4
+plt.rcParams['ytick.major.size'] = 4
 #Auxiliary functions:
 def plot_fig(r,M):
     # plots pg, pdata, decision boundary
-    countour_plot(dataDist = xDist, range_min = -1, range_max = 3, delta = 0.025)
+    countour_plot(dataDist = xDist, range_min = -1, range_max = 3, delta = 0.025, cmap_par = 'Greys')
     # distribution of inverse-mapped points
+
     z=zDist.rvs(r)
     gs=np.zeros((r,2)) # generator function
     for i in range(int(r/M)):
@@ -19,7 +26,7 @@ def plot_fig(r,M):
         gs[M*i:M*(i+1),:]=sess.run(G,{z_node: z})
     plt.scatter(gs[:,0], gs[:,1], label='p_g', alpha = 0.3)
 
-def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025):
+def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025, cmap_par = 'gray'):
     x = y = np.arange(range_min, range_max, delta)
     X, Y = np.meshgrid(x, y)
     Z = X.copy()
@@ -27,8 +34,8 @@ def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025):
         for j in range(X.shape[1]):
             Z[i,j] = dataDist.pdf([X[i,j],Y[i,j]])
     plt.figure()
-    CS = plt.contour(X, Y, Z)
-    plt.clabel(CS, inline=1, fontsize=10)
+    CS = plt.contour(X, Y, Z, cmap = cmap_par)
+    #plt.clabel(CS, inline=1, fontsize=10)
 
 #Optimizers:
 def momentum_optimizer(loss,var_list):
@@ -82,7 +89,7 @@ xDist = mn(mu, Sigma)
 zDist = mn([0,0], np.eye(2))
 
 # MLP - used for D_pre, D1, D2, G networks
-def linear(input, output_dim, stddev=1.0):
+def linear(input, output_dim, scope = None, stddev=1.0):
     norm = tf.random_normal_initializer(stddev=stddev)
     const = tf.constant_initializer(0.0)
     with tf.variable_scope(scope or 'linear'):
@@ -181,11 +188,8 @@ plt.show()
 for i, v in enumerate(d_params):
     sess.run(v.assign(weightsD[i]))
 
-# initial conditions
-#plot_fig(r = 1000, M = 1000)
-#plt.title('Before Training')
-#plt.show()
 
+# initial conditions
 # Algorithm 1 of Goodfellow et al 2014
 k=1 #Times we train the discriminator for each run of the generator.
 M=1000
@@ -202,18 +206,24 @@ for i in range(TRAIN_ITERS):
     histg[i],_=sess.run([obj_g,opt_g], {z_node: z}) # update generator
     if i % (TRAIN_ITERS//10) == 0:
         plot_fig(r = 1000, M = 1000)
+        #plt.title('Training interations: %d' % i)
         print(float(i)/float(TRAIN_ITERS), histd[i], histg[i])
 
+for i in plt.get_fignums():
+    plt.figure(i)
+    n_iter = i*1000
+    plt.title('Training interations: %d' % n_iter)
+    plt.savefig('../thesis/images/fig_biv%d.png' % i)
 
-plt.title('After Training')
 plt.show()
 
 #plt.savefig('fig5.png')
 
-plt.plot(range(TRAIN_ITERS),histd, label='obj_d')
-plt.plot(range(TRAIN_ITERS), 1-histg, label='obj_g')
+plt.plot(range(TRAIN_ITERS),histd, label='Discriminator Loss')
+plt.plot(range(TRAIN_ITERS), histg, label='Generator Loss')
 plt.legend()
+plt.savefig('../thesis/images/loss_biv.png')
 plt.show()
-#plt.savefig('fig4.png')
+
 
 sess.close()

@@ -12,7 +12,9 @@ header-includes:
    - \setcounter{secnumdepth}{5}
    - \setcounter{tocdepth}{5}
    - \usepackage{blindtext}
- 
+   - \usepackage{graphicx}
+   - \usepackage{subfig}
+
 output:
   pdf_document:
     fig_caption: no
@@ -88,7 +90,6 @@ On the other hand, there exist a class of models for which the density function 
 \subsection{Implicit Generative Models}
 
 Suppose the goal is to train a generative model, i.e. we want to learn $p(\mathbf{x})$ with support in some space $\mathcal{X}\subseteq\mathbb{R}^{m}$. $\mathbf{x}$ can be a high dimensional random variable with complex dependencies across dimensions that are captured by a set of latent variables. Let $\mathbf{z}$ be a vector of latent variables in some space $\mathcal{Z}\subseteq\mathbb{R}^{d}$, with density function $q(\mathbf{z})$. On the other hand, there is a family of deterministic functions $G_{\theta}(\mathbf{z})$, parameterized by $\theta\in\Theta$, such that $G:\mathcal{X}\times\Theta\rightarrow\mathcal{X}$. 
-
 Assuming we can sample from $q(\mathbf{z})$, we optimize the parameters $\theta$ such that $G_{\theta}(\mathbf{z})$ is able to generate data from another density $q_{\theta}$ that resembles the observed dataset. Therefore, as illustrated by Mohamed and Lakshminarayanan (2017), for  $\mathbf{z}'\sim q(\mathbf{z})$, we have that
 
 \begin{align*}
@@ -111,9 +112,13 @@ Some generative models such as GANs and VAEs are supported on a neural networks 
 
 Generative adversarial networks are a game between two players. The generator and the discriminator. The goal of the generator is to create samples that seem to come from the same distribution as the training data. The discriminator is a classifier that examines samples to determine whether they are real or fake. The discriminator is a typical supervised learning problem in which the samples have the label *real* or *fake*.  
 
-Let $\mathbf{z}$ be a latent variable and $\mathbf{x}$ a real observation. The discriminator $D$ is a function of $\mathbf{x}$ with parameters $\phi$, and the generator $G$ is a differentiable function of $\mathbf{z}$ with parameters $\theta$. Initially, $\mathbf{z}$ is sampled from some prior distribution $q$, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from $q_{\theta}$. 
+We start with a set of observations from some unknown density $p$. Let $\mathbf{z}$ be a latent variable with density $q$. The generator $G$ is a differentiable function of $\mathbf{z}$ with parameters $\theta$. Initially, $\mathbf{z}'$ is sampled from $q$, and $G(\mathbf{z}')$ generates $\mathbf{x}'$ from some density $q_{\theta}$. The discriminator $D$ is a function that takes a sample, either generated or observed, and assigns a probability that it comes from $p$.
 
-A set of $d$ random variables with normal distribution can generate any distribution as long as $G$ is sufficiently complex. In order for the support of $q_{\theta}$ to correspond to the full space of $\mathbf{x}$, the dimension of $\mathbf{z}$ to be the same as $\mathbf{x}$. In this context, we can draw samples from the model that are indistinguishable to the samples from the true data generating process. 
+\begin{equation*}
+\mathbf{z}'\sim q(\mathbf{z})\rightarrow G(\mathbf{z}')=\mathbf{x}'\rightarrow D(\mathbf{x}') \rightarrow [0,1]
+\end{equation*}
+
+Assuming $\mathbf{z}$ is a normally distributed random vector in $\mathbb{R}^{d}$, it is possible to generate data from any distribution as long as $G$ is sufficiently complex. In order for the support of $q_{\theta}$ to correspond to the full space of $\mathbf{x}$, the dimension of $\mathbf{z}$ needs to be greater or equal than the dimension of $\mathbf{x}$. In this context, we can draw samples from the model that are indistinguishable to the samples from the true data generating process. 
 
 GANs have attracted a lot of attention due to their capacity to produce data from complex high dimensional distributions. Additionally, samples can be generated in parallel, which can improve the speed of the algorithm. Unlike other methods such as VAEs or Boltzman machines they do not depend an a variational bound or a Markov chain process.
 
@@ -127,9 +132,7 @@ Training is typically performed using Stochastic Gradient Descent. In particular
 
 \subsection{Minimax Approach}
 
-Goodfellow et al. (2014) propose a zero-sum game between the discriminator $D$ and the generator $G$ competing against each other. 
-
-In order to derive the loss function, consider a binary random variable $y$. We have that $y=1$ if $\mathbf{x}$ comes from $p$ and $y=0$ if $\mathbf{x}$ comes from $q_{\theta}$. Let $p(\mathbf{x})=p(\mathbf{x}|y=1)$ and $q_{\theta}(\mathbf{x})=p(\mathbf{x}|y=0)$. Let $\pi = p(y=1)$. The discriminator is neural network with sigmoid output that estimates the probability of $\mathbf{x}$ being a real observation, i.e. $D(\mathbf{x})=p(y=1|\mathbf{x})$.Given a minibatch of $\mathbf{x}$ labeled $1$ and another minibach labeled cero, the cross entropy loss is given by 
+Goodfellow et al. (2014) propose a zero-sum game between the discriminator $D$ and the generator $G$ competing against each other. In order to derive the loss function, consider a binary random variable $y$. We have that $y=1$ if $\mathbf{x}$ comes from $p$ and $y=0$ if $\mathbf{x}$ comes from $q_{\theta}$. Let $p(\mathbf{x})=p(\mathbf{x}|y=1)$ and $q_{\theta}(\mathbf{x})=p(\mathbf{x}|y=0)$. Let $\pi = p(y=1)$. The discriminator is neural network with sigmoid output that estimates the probability of $\mathbf{x}$ being a real observation, i.e. $D(\mathbf{x})=p(y=1|\mathbf{x})$.Given a minibatch of $\mathbf{x}$ labeled $1$ and another minibach labeled cero, the cross entropy loss is given by 
 
 \begin{align}
 \mathcal{L}(\phi,\theta)&=\mathbb{E}_{p(\mathbf{x}|y)p(y)}[-y\log D(\mathbf{x})-(1-y)\log{(1- D(\mathbf{x}))}]\nonumber\\
@@ -144,69 +147,100 @@ This loss function is optimized by two stages at each iteration. Assuming $\pi=1
 \label{D_loss}
 \end{align}
 
-In the other stage, the function is minimized with respect to $\theta$. The terms that depend on $\theta$ correspond to the generator loss, i.e. 
+In another stage, the function is minimized with respect to $\theta$. The terms that depend on $\theta$ correspond to the generator loss, i.e. 
 
-\begin{align*}
-\mathcal{L}^{G}(\phi,\theta)&=-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
-\end{align*}
+\begin{equation}
+\mathcal{L}^{G}(\phi,\theta)=\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D(G(\mathbf{z})))}
+\label{g_loss1}
+\end{equation}
 
-Goodfellow et al. (2014) show that for $G$ fixed, the optimal discriminator $D$ is given by
+Consider the loss not as a function of $\phi$ and $\theta$ but as a functional of $D$ and $G$. Goodfellow et al. (2014) show that for $G$ fixed, the optimal discriminator $D$ is given by
 
 \begin{align}
 D^{*}(\mathbf{x})=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}
 \label{D_opt}
 \end{align}
 
-Consider the loss not as a function of $\phi$ and $\theta$ but as a functional of $D$ and $G$. Replacing (\ref{D_opt}) in (\ref{loss}) define
+Replacing (\ref{D_opt}) in (\ref{loss}), define
 
 \begin{align}
-\mathcal{L}(G)&=\max_{D}\mathcal{L}(D,G)\nonumber\\
-&=-\frac{1}{2}\mathbb{E}_{g}\log D^{*}(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D^{*}(G(\mathbf{z})))}\nonumber\\
+\mathcal{L}(G)&=\min_{D}\mathcal{L}(D,G)\nonumber\\
+&=-\frac{1}{2}\mathbb{E}_{p}\log D^{*}(\mathbf{x})-\frac{1}{2}\mathbb{E}_{\mathbf{z}}\log{(1- D^{*}(G(\mathbf{z})))}\nonumber\\
 &=-\frac{1}{2}\mathbb{E}_{p}\left[\log\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}\right]-\frac{1}{2}\mathbb{E}_{q_{\theta}}\left[\log{\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}}\right]\label{loss_func}
 \end{align}
 
-Goodfellow et al. (2014) show that the global minimum of $\mathcal{L}(G)$ corresponds to $-\log 4$, and it is obtained if and only if $p=q_{\theta}$. We can reformulate (\ref{loss_func}) as 
+Following Goodfellow et al. (2014), at this point $\mathcal{L}(G)$ is minimized when $p=q_{\theta}$, in which case $D^{*}(\mathbf{x})=\frac{1}{2}$. The global optimum corresponds to $\frac{\log (4)}{2}$. Let the Kullback-Leibler divergence $D_{KL}$ between two probability distributions $p$ and $q$ be given by 
+
+\[
+D_{KL}(p||q)=\mathbb{E}_{p}\left[\log\frac{p(\mathbf{x})}{q(\mathbf{x})}\right],
+\]
+
+then, we can reformulate (\ref{loss_func}) as 
 
 \begin{align*}
-\mathcal{L}(G)&=-\log(4)+KL\left(p||\frac{p+q_{\theta}}{2}\right)+KL\left(q_{\theta}||\frac{p+q_{\theta}}{2}\right)\\
-&=-log(4)+2\times JSD(p||q_{\theta})
+\mathcal{L}(G)&=\frac{\log(4)}{2}-\frac{1}{2}D_{KL}\left(p||\frac{p+q_{\theta}}{2}\right)-\frac{1}{2}D_{KL}\left(q_{\theta}||\frac{p+q_{\theta}}{2}\right)\\
+&=\frac{\log(4)}{2}-D_{JSD}(p||q_{\theta})
 \end{align*}
 
-where $KL$ is the Kullback-Leibler divergence and $JSD$ is the Jensen-Shannon divergence. The $JSD$ measures the similarity between two probability distributions. Unlike the $KL$, the $JSD$ is symmetric and finite. In principle, as pointed by Nowosin et al. (2016), if there are sufficient training samples and  $q_{\theta}$ is rich enough, $p$ can be properly approximated.
-In practice, the best behavior is obtained by using simultaneous gradient descent, with one iteration for each player.
+$D_{JSD}$ is the Jensen-Shannon divergence and measures the similarity between two probability distributions. Unlike the $D_{KL}$, the $D_{JSD}$ is symmetric and finite. In principle, as pointed by Nowosin et al. (2016), if there are sufficient training samples and  $q_{\theta}$ is rich enough, $p$ can be properly approximated. In practice, the best behavior is obtained by using simultaneous gradient descent, with one iteration for each player.
 
 \subsubsection{Practical considerations}
 
 The problem, as posed by Goodfellow et al. (2014) can be stated as minimizing the Jensen Shannon divergence between the data and the model distribution. However, the game converges to its equilibrium if the optimization is performed in a functional space. In practice, we do not know the distributions of the data generating process or the model. The discriminator and the generator are deep neural networks which are optimized with respect to their parameters. This is a non-convex optimization problem and convergence is not always possible. Additionally, the specification of the generator $G$ imposes limitations on the random data that can be produced. 
 
-GANs do not naturally come with a likelihood function to be optimized and, because of the adversarial structure of the algorithm, it can be difficult to evaluate if the model is training in an appropriate way. Several problems arise in practice, e.g. the quality of the samples might be lower than expected. Suppose the real data comes from a multi-modal distribution. It is common for GANs to generate samples from very few modes, even if the generator is a deep neural network with significant capacity. Another problem that appears in practical implementations is related to the vanishing gradient of the objective function. If this is the case, then as the discriminator improves, the generator worsen.  Different authors have propose different alternative specifications of the generator loss function in order the improve the odds of achieving convergence.   
+GANs do not naturally come with a likelihood function to be optimized and, because of the adversarial structure of the algorithm, it can be difficult to evaluate if the model is training in an appropriate way. Several problems arise in practice, e.g. the quality of the samples might be lower than expected. Suppose the real data comes from a multi-modal distribution. It is common for GANs to generate samples from very few modes, even if the generator is a deep neural network with significant capacity. Another problem that appears in practical implementations is related to the vanishing gradient of the objective function. Different authors have propose different alternative specifications of the generator's loss function in order the improve the odds of achieving convergence.   
 
-Salimans et al. (2016) posit a variety of techniques to train GANs and achieve better results. Some of their ideas are based on experiments and empirical results and do not have a theoretical support, e.g. they reformulate the generator loss function as 
+Salimans et al. (2016) posit a variety of techniques to train GANs and achieve better results. Some of their ideas are based on experiments and empirical results and do not have a theoretical support. They reformulate the generator loss function as 
 
-\begin{align*}
-\mathcal{L}^{G}(\theta)=\mathbb{E}_{\mathbf{z}}\log{D(G(\mathbf{z}))}
-\end{align*}
+\begin{equation}
+\mathcal{L}^{G}(\theta)=-\mathbb{E}_{\mathbf{z}}\log{D(G(\mathbf{z}))}
+\label{g_loss2}
+\end{equation}
 
-This last objective function provides a stronger gradient and allows the algorithm to converge faster when it does converge. However, the connection with the Jensen-Shanon divergence does not exist anymore. Nowozin et al. (2016) show that generative models can be trained using any f-divergence. Based on their approach, in the next section we evaluate particular cases such as Kullback-Leibler divergence. Arjovsky et al. (2017) attempt to tackle the vanishing-gradient problem by incorporating an approximation of the *earth mover* distance to measure the closeness between the densities $q_{\theta}$ and $p$.
+This last objective function allows the algorithm to converge faster when it does converge. Figure \ref{gen_loss} presents each of the two specifications of the generator's loss, shown in equations (\ref{g_loss1}) and (\ref{g_loss2}), as a function of the discriminator's output. Equation (\ref{g_loss2}) provides a stronger gradient at the start of the algorithm when the discriminator is expected to assign a low probability to a generated sample. 
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{images/gen_loss.png}
+  \caption{Generator's loss function.}
+  \label{gen_loss}
+\end{figure}
+
+
+However, the connection with the Jensen-Shanon divergence does not exist anymore. Nowozin et al. (2016) show that generative models can be trained using any f-divergence. Based on their approach, in the next section we evaluate particular cases such as Kullback-Leibler divergence. Arjovsky et al. (2017) attempt to tackle the vanishing-gradient problem by incorporating an approximation of the *earth mover* distance to measure the closeness between the densities $q_{\theta}$ and $p$.
+
+\subsubsection{Algorithm}
+
+\begin{figure}[H]
+\centering
+\subfloat[After 2000 epochs.]{
+  \includegraphics[width=0.7\linewidth]{images/fig_biv2.png}
+}\\
+\hspace{0mm}
+\subfloat[After 4000 epochs.]{
+  \includegraphics[width=0.7\linewidth]{images/fig_biv4.png}
+}
+\caption{Countours plot and 1000 points produced by the generator. In figures (a) and (b) the generator parameters have been trained for 2000 and 4000 epochs repectively. }
+\end{figure}
+
 
 \subsection{Divergence minimization}
 
 Generative Adversarial Networks define a mechanism to generate samples from some density $q_{\theta}$ that is as similar as possible to the training dataset distribution. Therefore, it is natural to think about training the generator to minimize a divergence measure between $q_{\theta}$ and the true density $p$. As explained before, in the original formulation Goodfellow et al. (2014) attempt to minimize the Jensen-Shanon divergence between the $q_{\theta}$ and $p$. Another reasonable objective would be to minimize the Kullback-Leibler divergence between the unknown data generating process and the generator's distribution $q_{\theta}$, even more so if we consider its connection to the problem of maximizing the likelihood function. Assuming both $q_{\theta}$ and $p$ are continuous and have the same support, the Kullback-Leibler divergence is given by
 
-\begin{align}
-D_{KL}(q_{\theta}||p) &=\mathbb{E}_{q_{\theta}}\left[\log \frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]\\
+\begin{equation}
+D_{KL}(q_{\theta}||p) =\mathbb{E}_{q_{\theta}}\left[\log \frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]
 \label{d_kl}
-\end{align}
+\end{equation}
 
-Assuming the discriminator is closer to optimality and reorganizing the terms we obtain
+The optimal discriminator is denoted $D^{*}$. From equation (\ref{D_opt}) we have
 
 \begin{align}
 D^{*}(\mathbf{x})&=\frac{p(\mathbf{x})}{p(\mathbf{x})+q_{\theta}(\mathbf{x})}\nonumber\\
-\frac{1-D^{*}(\mathbf{x})}{D^{*}(\mathbf{x})}&=\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}
-\label{opt_disc}
+\frac{1-D^{*}(\mathbf{x})}{D^{*}(\mathbf{x})}&=\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\label{opt_disc}
 \end{align}
 
-then replacing (\ref{opt_disc}) in (\ref{d_kl}) we have 
+Assuming the discriminator is closer to optimality, i.e. $D\approx D^{*}$, and replacing (\ref{opt_disc}) in (\ref{d_kl}) we obtain
 
 \begin{align*}
 D_{KL}(q_{\theta}||p) &=\mathbb{E}_{q_{\theta}}\left[\log \frac{1-D^{*}(\mathbf{x})}{D^{*}(\mathbf{x})}\right]\\
@@ -215,10 +249,10 @@ D_{KL}(q_{\theta}||p) &=\mathbb{E}_{q_{\theta}}\left[\log \frac{1-D^{*}(\mathbf{
 
 The generator loss can be formulated as
 
-\begin{align*}
-\mathcal{L}^{G} &= \mathbb{E}_{q_{\theta}}\left[\log \frac{1-D(\mathbf{x})}{D(\mathbf{x})}\right]\\
-&=\mathbb{E}_{z}\left[\log \frac{1-D(G(\mathbf{z}))}{D(G(\mathbf{z}))}\right]
-\end{align*}
+\begin{align}
+\mathcal{L}^{G} &= \mathbb{E}_{q_{\theta}}\left[\log \frac{1-D(\mathbf{x})}{D(\mathbf{x})}\right]\nonumber\\
+&=\mathbb{E}_{z}\left[\log \frac{1-D(G(\mathbf{z}))}{D(G(\mathbf{z}))}\right]\label{loss_kl}
+\end{align}
 
 
 It important to note that the KL divergence is not symmetric and we cannot expect the same result when optimizing $D_{KL}(q_{\theta}||p)$ rather than $D_{KL}(p||q_{\theta})$. In Section \ref{div_effect} we explore in more detail the potential effects of incorporating in the algorithm different divergences.
@@ -266,24 +300,24 @@ T^{*}=f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)
 \label{ts}
 \end{align}
 
-therefore, the supremum in (\ref{D_fb}) becomes over the density ratio $\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}$. Finally, replacing (\ref{ts}) in (\label{D_fb}) we obtain the objective function which corresponds to the lower bound of the divergence, i.e.
+therefore, the supremum in (\ref{D_fb}) becomes over the density ratio $\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}$. Finally, replacing (\ref{ts}) in (\ref{D_fb}) we obtain the objective function which corresponds to the lower bound of the divergence, i.e.
 
-\begin{align*}
-\mathcal{L}=\mathbb{E}_{p}\left[f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right]-\mathbb{E}_{q_{\theta}}\left[f^{*}\left(f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right)\right]
-\end{align*}
+\begin{equation}
+\mathcal{L}=\mathbb{E}_{p}\left[f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right]-\mathbb{E}_{q_{\theta}}\left[f^{*}\left(f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)\right)\right]\label{D_now}
+\end{equation}
 
 This loss function allows to train the model using the adversarial scheme with two minibatches: one coming from the dataset and another coming from the generator function.
 
 
-\paragraph{Kullback-Leibler divergence}
+\paragraph{Kullback-Leibler divergence, $D(p||q_{\theta})$ }
 
 Let $f(u)=u \log(u)$. Then, $f'(u)=1+\log(u)$. The convex conjugate corresponds to
 
 \begin{align}
-f^{*}(t)=\sup_{u\in \text{dom}_{f}}[ut-u\log(u)]
+f^{*}(t)=\sup_{u\in \text{dom}_{f}}[ut-u\log(u)]\label{conv}
 \end{align}
 
-Deriving with respect to $u$ and equalizing to cero we obtain
+Deriving (\ref{conv}) with respect to $u$ and equalizing to cero we obtain
 
 \begin{align*}
 t-1-\log(u)&=0\\
@@ -302,13 +336,36 @@ with domain in $\mathbb{R}$. We have that
 f'\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right)=1+\log\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}
 \end{align*}
 
-then,
+then, in this case, equation (\ref{D_now}) corresponds to
+
+\begin{equation}
+\mathcal{L}=\mathbb{E}_{p}\left[1+\log\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right]+\mathbb{E}_{q_{\theta}}\left[e^{\log\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}}\right]
+\label{loss_kl2}
+\end{equation}
+
+Let $\sigma^{-1}(x)$ be the inverse of the sigmoid function, i.e.
+
+\begin{equation*}
+\sigma^{-1}(x)=-\log\left(\frac{1}{x}-1\right)
+\end{equation*}
+
+We have that
 
 \begin{align*}
-\mathcal{L}=\mathbb{E}_{p}\left[1+\log\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right]+\mathbb{E}_{q_{\theta}}\left[\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right]
+\sigma^{-1}(D(\mathbf{x}))&=-\log\left(\frac{1}{D(\mathbf{x})}-1\right)\\
+&\approx -\log\left(\frac{p(\mathbf{x})+q_{\theta}(\mathbf{x})}{p(\mathbf{x})}-1\right)\\
+&=-\log\left(\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right)\\
+&=\log\left(\frac{p(\mathbf{x})}{q_{\theta}(\mathbf{x})}\right),
 \end{align*}
 
-\paragraph{Reverse Kullback-Leibler divergence}
+therefore, from equation (\ref{loss_kl2}), we conclude that the loss function associated with the generator is given by
+
+\begin{align*}
+\mathcal{L}^{G}&=-\mathbb{E}_{q_{\theta}}\left[\exp(\sigma^{-1}(D(\mathbf{x}))\right]\\
+&=-\mathbb{E}_{z}\left[\exp(\sigma^{-1}(D(G(\mathbf{z})))\right]\\
+\end{align*}
+
+\paragraph{Reverse Kullback-Leibler divergence, $D(q_{\theta}||p)$}
 
 Let $f(u)=-log(u)$. Then, $f'(u)=-\frac{1}{u}$. The convex conjugate corresponds to
 
@@ -341,12 +398,49 @@ then,
 \mathcal{L}=\mathbb{E}_{p}\left[-\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right]+\mathbb{E}_{q_{\theta}}\left[-1-\log\left(\frac{q_{\theta}(\mathbf{x})}{p(\mathbf{x})}\right)\right]
 \end{align*}
 
+In this case, the loss function associated with the generator is the same as in equation (\ref{loss_kl}).
 
 \subsubsection{Divergence effect on results}\label{div_effect}
 
 Consider the $D_{KL}(p||q_{\theta})$. Suppose there is point $x$ for which $p(\mathbf{x})<q_{\theta}(\mathbf{x})$, i.e. it is more likely that $\mathbf{x}$ comes from the model rather than generated. As $q_{\theta}(\mathbf{x})$ goes to cero the divergence goes to infinity at a high speed. On the other hand, if $p(\mathbf{x})<q_{\theta}(\mathbf{x})$ and $q_{\theta}(\mathbf{x})>0$, the cost as $p(\mathbf{x})$ goes to cero is very low. In this case, the generator will try to cover the whole domain of $\mathbf{x}$ and will not put enough mass to the modes of the true density $p$. Arjovsky and Bottou (2017) call this phenomenon *mode dropping*. 
 
 Now consider $D_{KL}(q_{\theta}||p)$. A point $x$ for which $p(\mathbf{x})<q_{\theta}(\mathbf{x})$, the divergence goes to infinity as $p(\mathbf{x})$ goes to cero. In this case the generator will try to produce samples for which $p(\mathbf{x})$ is significant leading to what is usually called as *mode collapse*.
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{images/mix_before.png}
+  \caption{The }
+  \label{points}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{images/mix_after1.png}
+  \caption{Point in euclidean space and $\epsilon/2$-balls around.}
+  \label{points}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{images/mix_after2.png}
+  \caption{Point in euclidean space and $\epsilon/2$-balls around.}
+  \label{points}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rrr}
+\hline
+Generator Loss & Mean & Variance  \\
+\hline
+& 2.99796 & 0.30128 \\
+& 2.09541 & 0.95154 \\
+\hline
+\end{tabular}
+\caption{Network}
+\end{table}
+
 
 
 \section{GANs and Bayesian Inference}\label{gans_bi}
@@ -483,21 +577,39 @@ Based in equation (\ref{d_kl2}), the generator loss function is defined as
 \end{align*}
 
 
+\subsubsection{Experiment}
 
-\section{Results}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{images/prior_contour.png}
+  \caption{Point in euclidean space and $\epsilon/2$-balls around.}
+  \label{points}
+\end{figure}
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\begin{tabular}{rrr}
-\hline
-Generator Loss & Mean & Variance  \\
-\hline
-& 1.00269 & 0.30169 \\
-& 2.09541 & 0.95154 \\
-\hline
-\end{tabular}
-\caption{Network}
-\end{table}
+\subfloat[After 2000 epochs]{
+  \includegraphics[width=0.7\linewidth]{images/case2_post_contour1.png}
+}\\
+\hspace{0mm}
+\subfloat[After 4000 epochs]{
+  \includegraphics[width=0.7\linewidth]{images/case2_post_contour30.png}
+}
+\caption{Countours plot and 1000 points produced by the generator. In figures (a) and (b) the generator parameters have been trained for 2000 and 4000 epochs repectively. }
+\end{figure}
+
+
+\begin{figure}[H]
+\centering
+\subfloat[After 2000 iterations]{
+  \includegraphics[width=0.7\linewidth]{images/case2_post_x1.png}
+}\\
+\hspace{0mm}
+\subfloat[After 4000 interations]{
+  \includegraphics[width=0.7\linewidth]{images/case2_post_x30.png}
+}
+\caption{caption}
+\end{figure}
 
 
 

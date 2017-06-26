@@ -8,6 +8,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns # for pretty plots
 from scipy.stats import norm
 
+plt.rcParams['axes.edgecolor'] = 'black'
+plt.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['axes.grid'] = False
+plt.rcParams['axes.linewidth'] = 1
+plt.rcParams['xtick.major.size'] = 4
+plt.rcParams['ytick.major.size'] = 4
+
 # Auxiliary functions:
 # plot decision surface
 def plot_fig(mu, sigma, r = 1000, M = 1000):
@@ -15,21 +22,22 @@ def plot_fig(mu, sigma, r = 1000, M = 1000):
     # prior
     xs=np.linspace(mu[0]-2,mu[1]+2,r)
     zDist_pdf = zDist.pdf(xs)
-    ax.plot(xs, zDist_pdf, label = 'p_z')
+    ax.plot(xs, zDist_pdf, label = r'$p_{z}$')
 
     # p_data
-    xs=np.linspace(mu[0]-2,mu[1]+2,r)
     xDist_pdf = xDist.pdf(xs)
-    ax.plot(xs, xDist_pdf, label = 'p_data')
+    ax.plot(xs, xDist_pdf, label = r'$p_{data}$')
     # distribution of the generator
     g_par = sess.run(g_params)
     g_mu = g_par[1]
     g_sigma = g_par[0]
     gs = norm.pdf(xs,loc=float(g_mu),scale=float(g_sigma))
-    ax.plot(xs, gs, label='q_theta')
+    ax.plot(xs, gs, label=r'$q_{\theta}$')
     # ylim, legend
-    ax.set_ylim(0,1.5)
+    np.max([zDist_pdf,xDist_pdf,gs])
+    ax.set_ylim(0,np.max([zDist_pdf,xDist_pdf,gs])+0.2)
     plt.legend()
+
 
 def momentum_optimizer(loss,var_list):
     batch = tf.Variable(0)
@@ -79,7 +87,7 @@ class norm_mix(object):
         samples.sort()
         return samples
     def pdf(self, x):
-        mix_pdf = self.p* norm.pdf(xs,loc=mu[0],scale=sigma[0])+(1-self.p)*norm.pdf(xs,loc=mu[1],scale=sigma[1])
+        mix_pdf = self.p* norm.pdf(x,loc=mu[0],scale=sigma[0])+(1-self.p)*norm.pdf(x,loc=mu[1],scale=sigma[1])
         return mix_pdf
 
 #Network hyperpar:
@@ -162,8 +170,10 @@ with tf.variable_scope("Disc") as scope:
 
 
 obj_d=tf.reduce_mean(-tf.log(D1)-tf.log(1-D2))
+#Loss function 1:
 obj_g=tf.reduce_mean(-tf.log(D2))
-#obj_g2=tf.reduce_mean(-tf.log(D2/(1-D2)))
+#Loss function 2:
+obj_g=tf.reduce_mean(-tf.log(D2/(1-D2)))
 # copy weights from pre-training over to new D network.
 d_pre_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D_pre')
 d_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
@@ -202,9 +212,8 @@ for i, v in enumerate(d_params):
 # Plot Before Training
 plot_fig(mu, sigma)
 plt.title('Before Training')
+plt.savefig('../thesis/images/mix_before.png')
 plt.show()
-#plt.savefig('fig3.png')
-
 # Algorithm 1 of Goodfellow et al 2014
 k=1 #Times we train the discriminator for each run of the generator.
 M=1200
@@ -224,10 +233,11 @@ for i in range(TRAIN_ITERS):
         print(float(i)/float(TRAIN_ITERS), histd[i], histg[i])
 
 plot_fig(mu, sigma)
-plt.title('After Training')
+plt.title('After Training \n $\mathcal{L}=-\mathbb{E}[\log D(G(z))]$')
+#plt.savefig('../thesis/images/mix_after1.png')
 plt.show()
 
-#plt.savefig('fig5.png')
+g_par = sess.run(g_params)
 
 plt.plot(range(TRAIN_ITERS),histd, label='obj_d')
 plt.plot(range(TRAIN_ITERS), 1-histg, label='obj_g')

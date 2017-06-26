@@ -9,11 +9,12 @@ from numpy.random import choice as sample
 
 #Auxiliary functions
 np.random.seed(seed=1234)
-def plot_fig(x, M):
+def plot_fig(x, M, zmin = -5, zmax = 5, cmap_par = 'Greys'):
     #Unnormalised posteior plot:
     zPost = postDist(x, priorDist = zPrior)
 
-    countour_plot(zPost, zmin+1, zmax+1)
+    countour_plot(zPost, zmin, zmax, cmap_par = cmap_par)
+
     # distribution of inverse-mapped points
     noise = mn(mean = [0,0,0], cov = np.eye(3)).rvs(size = M)
     x_vec = np.reshape(np.repeat(x, M), (M,1))
@@ -21,8 +22,7 @@ def plot_fig(x, M):
     plt.scatter(x_g[:,0], x_g[:,1],label='p_g', alpha = 0.3)
     plt.title('Unnormalised posterior density for x = ' + str(x))
 
-
-def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025, label = False):
+def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025, label = False, cmap_par = 'Greys'):
     x = y = np.arange(range_min, range_max, delta)
     X, Y = np.meshgrid(x, y)
     Z = X.copy()
@@ -30,7 +30,7 @@ def countour_plot(dataDist, range_min = -1, range_max = 3, delta = 0.025, label 
         for j in range(X.shape[1]):
             Z[i,j] = dataDist.pdf(np.array([X[i,j],Y[i,j]]))
     plt.figure()
-    CS = plt.contour(X, Y, Z)
+    CS = plt.contour(X, Y, Z, cmap = cmap_par)
     if label == True:
         plt.clabel(CS, inline=1, fontsize=10)
 
@@ -53,7 +53,7 @@ class postDist(object):
         self.x = x
         self.priorDist = priorDist
     def beta_par(self, z):
-        beta = 1 + (np.array(z)**3).clip(0,np.Inf).sum(axis=0)
+        beta = 1 + (np.array(z)**2).sum(axis=0)
         return beta
     def logLik(self, z):
         return -np.log(self.beta_par(z.T)) - self.x/self.beta_par(z.T)
@@ -73,18 +73,17 @@ zPrior = mn([0,0], np.eye(2)*prior_var)
 zPost = postDist(x = 30, priorDist = zPrior)
 zPost1 = postDist(x = 1, priorDist = zPrior)
 #Prior and Posterior contour plot:
-countour_plot(zPrior, zmin, zmax, label  = True)
-plt.title('Prior countour plot')
-plt.savefig('../thesis/images/prior_contour.png')
+#countour_plot(zPrior, zmin, zmax, label  = True)
+#plt.title('Prior countour plot')
+#plt.savefig('../thesis/images/prior_contour.png')
 #Unnormalised posteior plot:
-countour_plot(zPost, zmin+1, zmax+1, label = False)
+countour_plot(zPost, zmin-1, zmax+1, label = False)
 plt.title('Posterior countour plot (x = 30) ')
-plt.savefig('../thesis/images/case1_post_contour30.png')
+plt.savefig('../thesis/images/case2_post_contour30.png')
 countour_plot(zPost1, zmin, zmax, label = False)
 plt.title('Posterior countour plot (x = 1) ')
-plt.savefig('../thesis/images/case1_post_contour1.png')
+plt.savefig('../thesis/images/case2_post_contour1.png')
 plt.show()
-
 #Neural Network
 # MLP - used for D_pre, D1, D2, G networks
 def linear(input, output_dim, scope=None, stddev=1.0):
@@ -114,7 +113,7 @@ with tf.variable_scope("Gen"):
     gen_x_node=tf.placeholder(tf.float32, shape=(None,1))
     gen_noise_node=tf.placeholder(tf.float32, shape=(None,3))
     G = generator(gen_noise_node, gen_x_node) # generate normal transformation of Z
-    beta = tf.add(1.0, tf.reduce_sum(tf.maximum(tf.pow(G,3),0),1))
+    beta = tf.add(1.0, tf.reduce_sum(tf.pow(G,2),1))
     llh = tf.add(-tf.log(beta),-tf.multiply(tf.squeeze(gen_x_node),1/beta)) #likelihood
 
 #defines the 'discriminator network'
@@ -154,6 +153,9 @@ with tf.variable_scope("Disc") as scope:
 obj_d=tf.reduce_mean(-tf.log(D1)-tf.log(1-D2))
 obj_g=tf.reduce_mean(-tf.log(D2/(1-D2)))-tf.reduce_mean(llh)
 
+#sess.run(tf.reduce_mean(llh),
+#sess.run(tf.reduce_mean(llh), {z_node:z, x_node: x,gen_noise_node : noise, gen_x_node : x})
+ #likelihood
 d_pre_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D_pre')
 d_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
 g_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Gen')
@@ -214,6 +216,6 @@ for i in range(TRAIN_ITERS):
 
 
 x = 1
-plot_fig(x, M)
-plt.savefig('../thesis/images/case1_post_x1.png')
+plot_fig(x, M = 1000, zmin = -4, zmax = 4)
+plt.savefig('../thesis/images/case2_post_x1.png')
 plt.show()
