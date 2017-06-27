@@ -14,7 +14,7 @@ header-includes:
    - \usepackage{blindtext}
    - \usepackage{graphicx}
    - \usepackage{subfig}
-
+   - \usepackage[]{algorithm2e}
 output:
   pdf_document:
     fig_caption: no
@@ -209,7 +209,43 @@ This last objective function allows the algorithm to converge faster when it doe
 
 However, the connection with the Jensen-Shanon divergence does not exist anymore. Nowozin et al. (2016) show that generative models can be trained using any f-divergence. Based on their approach, in the next section we evaluate particular cases such as Kullback-Leibler divergence. Arjovsky et al. (2017) attempt to tackle the vanishing-gradient problem by incorporating an approximation of the *earth mover* distance to measure the closeness between the densities $q_{\theta}$ and $p$.
 
-\subsubsection{Algorithm}
+\subsubsection{Basic Algorithm and Example}
+
+Algorithm \ref{alg1} presents the basic structure of the GANs procedure. Given a loss function of the discriminator $D$ and the generator $G$,  the parameters $\phi$ and $\theta$, of $D$ and $G$ respectively, are updated for a certain number of iterations using stochastic gradient descent. At each iteration, we need a sample $\mathbf{x}$ and $\mathbf{z}$ in order to estimate the losses $\mathcal{L}^{D}$ and $\mathcal{L}^{G}$. 
+
+\begin{algorithm}[H]
+ \KwData{$\mathcal{L}^{D}$, $\mathcal{L}^{G}$, number of epochs \textbf{n\_epochs}, and  minibatch size $M$.}
+ \KwResult{Trained parameters of $D$ and $G$.}
+ \For{$i\in 1:$\textbf{n\_epochs}}{
+ Generate sample of size $M$, $\mathbf{x}'\sim p(\mathbf{x})$;\\
+ Generate sample of size $M$, $\mathbf{z}'\sim q(\mathbf{z})$;\\
+ $\min_{\phi}\mathcal{L}^{D}$;\\
+ $\min_{\theta}\mathcal{L}^{G}$
+ }
+ \caption{GANs basic algorithm.}
+ \label{alg1}
+\end{algorithm}
+
+Suppose we want to train a generator neural network to sample from a bivariate normal distribution. In this example the target density $p$ is $N(\mu, \Sigma)$, where
+
+
+\begin{align*}
+\mu=\left(\begin{array}{c}
+1\\
+1
+\end{array}\right)
+\end{align*}
+
+We assume the standard deviation of each marginal density is $0.7$ and the correlation is $0.5$, therefore
+
+\begin{align*}
+\Sigma=\left(\begin{array}{cc}
+0.49 & 0.245\\
+0.245 & 0.49
+\end{array}\right)
+\end{align*}
+
+The generator network has 1 hidden layer with 20 units and *softplus* activation function. The discriminator network has 2 hidden layers. Each layer has 40 units with *tanh* activation functions and *sigmoid* output. Figure \ref{biv} exhibits the contours plot and 1000 points produced by the generator after 2000 and 4000 epochs. We observe how the generated points are initially far away from the target, but eventually $G$ learns to produce data consistent with $p$. 
 
 \begin{figure}[H]
 \centering
@@ -220,7 +256,8 @@ However, the connection with the Jensen-Shanon divergence does not exist anymore
 \subfloat[After 4000 epochs.]{
   \includegraphics[width=0.7\linewidth]{images/fig_biv4.png}
 }
-\caption{Countours plot and 1000 points produced by the generator. In figures (a) and (b) the generator parameters have been trained for 2000 and 4000 epochs repectively. }
+\caption{Contours plot and 1000 points produced by the generator. In figures (a) and (b) the generator parameters have been trained for 2000 and 4000 epochs respectively. }
+\label{biv}
 \end{figure}
 
 
@@ -361,8 +398,8 @@ We have that
 therefore, from equation (\ref{loss_kl2}), we conclude that the loss function associated with the generator is given by
 
 \begin{align*}
-\mathcal{L}^{G}&=-\mathbb{E}_{q_{\theta}}\left[\exp(\sigma^{-1}(D(\mathbf{x}))\right]\\
-&=-\mathbb{E}_{z}\left[\exp(\sigma^{-1}(D(G(\mathbf{z})))\right]\\
+\mathcal{L}^{G}&=-\mathbb{E}_{q_{\theta}}\left[\exp(\sigma^{-1}(D(\mathbf{x}))\right]\nonumber\\
+&=-\mathbb{E}_{z}\left[\exp(\sigma^{-1}(D(G(\mathbf{z})))\right]\label{loss_ml}
 \end{align*}
 
 \paragraph{Reverse Kullback-Leibler divergence, $D(q_{\theta}||p)$}
@@ -406,46 +443,56 @@ Consider the $D_{KL}(p||q_{\theta})$. Suppose there is point $x$ for which $p(\m
 
 Now consider $D_{KL}(q_{\theta}||p)$. A point $x$ for which $p(\mathbf{x})<q_{\theta}(\mathbf{x})$, the divergence goes to infinity as $p(\mathbf{x})$ goes to cero. In this case the generator will try to produce samples for which $p(\mathbf{x})$ is significant leading to what is usually called as *mode collapse*.
 
+\paragraph{Mixture of Gaussians}
+
+Suppose we want to approximate the density function of a mixture of two normal random variables with a univariate normal random variable. Assume the latent variable $z\sim N(0,1)$ and the generator is trained to sample from a normal distribution $N(\mu, \sigma^{2})$. In this case, $G(z)=\mu+\sigma z$. Figure \ref{mix_ref} shows the density function of the mixture of two Gaussians: $N(1,0.3^{2})$ and $N(3,0.3^{2})$. The weight of each component is $0.5$. Additionally, Figure \ref{mix_ref} exhibits the density function of the latent variable $z$, and the density function of a normal random variable with mean $mu$ and variance $\sigma^2$, where $\mu$ and $\sigma$ have been randomly initialized.    
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{images/mix_before.png}
-  \caption{The }
-  \label{points}
+  \includegraphics[width=0.6\linewidth]{images/mix_before.png}
+  \caption{Plots of the density function of the mixture of Gaussians, the density function of the latent variable $z$, and the density function of a normal random variable with mean $mu$ and variance $\sigma^2$, where $\mu$ and $\sigma$ have been randomly initialized.}
+  \label{mix_ref}
 \end{figure}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.8\linewidth]{images/mix_after1.png}
-  \caption{Point in euclidean space and $\epsilon/2$-balls around.}
-  \label{points}
-\end{figure}
+In this example the discriminator network has 2 hidden layers. Each layer has 40 units with *tanh* activation functions, and *sigmoid* output. First, we train $G$ to learn $\mu$ and $\sigma$ by minimizing $D_{KL}(p||q_{\theta})$, i.e. using equation (\ref{loss_ml}). As expected, in this case the resulting mean parameter approximates the average of the means of the two Gaussian densities as shown in Figure \ref{mix1}. 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{images/mix_after2.png}
-  \caption{Point in euclidean space and $\epsilon/2$-balls around.}
-  \label{points}
+  \includegraphics[width=0.6\linewidth]{images/mix_after2.png}
+  \caption{Plots Density function of the mixture of Gaussians, density function of the latent variable $z$, the density function of a normal random variable with mean $mu$ and variance $\sigma^2$, after training the generator by minimizing $D_{KL}(p||q_{\theta})$.}
+  \label{mix1}
+\end{figure}
+
+Then, we train $G$ to learn $\mu$ and $\sigma$ by minimizing $D_{KL}(q_{\theta}||p)$, i.e. using equation (\ref{loss_kl}). Now the resulting mean parameter collapses to one of the modes of the target density as presented in Figure \ref{mix2}. Table \ref{mix_tab} summarizes the results.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\linewidth]{images/mix_after1.png}
+  \caption{Plots Density function of the mixture of Gaussians, density function of the latent variable $z$, the density function of a normal random variable with mean $mu$ and variance $\sigma^2$, after training the generator by minimizing $D_{KL}(q_{\theta})||p$.}
+  \label{mix2}
 \end{figure}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{rrr}
 \hline
-Generator Loss & Mean & Variance  \\
+Divergence & Mean & Standard Deviation  \\
 \hline
-& 2.99796 & 0.30128 \\
-& 2.09541 & 0.95154 \\
+$D_{KL}(p||q_{\theta})$ & 2.09541 & 0.95154 \\
+$D_{KL}(q_{\theta}||p)$ & 2.99796 & 0.30128 \\
 \hline
 \end{tabular}
-\caption{Network}
+\caption{Mean and standard deviation obtained after training the generator by minimizing $D_{KL}(p||q_{\theta})$ and $D_{KL}(q_{\theta}||p)$.}
+\label{mix_tab}
 \end{table}
 
+There exist different alternatives to pose the generator's objective function for training GANs. Different specifications lead to varied results directly related to the characteristics of the samples produced by the algorithm. 
 
+\newpage
 
 \section{GANs and Bayesian Inference}\label{gans_bi}
 
-Within the GANs framework, we define $\mathbf{z}$ as the input variable variable and $\mathbf{x}$ as an observation. $\mathbf{z}$ is sampled from some distribution, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from an unknown density $q_{\theta}$. From a probabilistic perspective, $\mathbf{z}$ is a latent variable with prior density $q(\mathbf{z})$. We can think of $\mathbf{x}$ as being sampled from  $p_{\theta}(\mathbf{x}|\mathbf{z})$. The joint density is given by $p(\mathbf{x}, \mathbf{z}) = p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})$. The posterior density is
+Within the GANs framework, we define $\mathbf{z}$ as the input variable variable and $\mathbf{x}$ as an observation. $\mathbf{z}$ is sampled from some distribution, and $G(\mathbf{z})$ generates a sample of $\mathbf{x}$ from an unknown density $q_{\theta}$. From a probabilistic perspective, $\mathbf{z}$ is a latent variable with prior density $q(\mathbf{z})$. We can think of $\mathbf{x}$ as being sampled from the conditional distribution $p_{\theta}(\mathbf{x}|\mathbf{z})$. The joint density is given by $p(\mathbf{x}, \mathbf{z}) = p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})$. The posterior density is
 
 \begin{align*}
 p(\mathbf{z}|\mathbf{x})=\frac{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})}{q_{\theta}(\mathbf{x})}
@@ -454,6 +501,8 @@ p(\mathbf{z}|\mathbf{x})=\frac{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})}{q
 Variational inference implies approximating the true posterior $p(\mathbf{z}|\mathbf{x})$ through a family of distributions $q_{\gamma}(\mathbf{z}|\mathbf{x})$ (denoted $q_{\gamma}(\mathbf{z})$) that depend on a certain set of parameters $\gamma$. The Kullback-Leibler divergence allows to measure the information loss when using $q_{\gamma}(\mathbf{z}|\mathbf{x})$ to approach the true posterior.
 
 In general, likelihood-free inference methods estimate parameters for which the difference between simulated and observed data is small. The main problem is about finding some relation between the parameters affect the relation between the data generating process and the model to approximate it. Inference in GANs is not well understood.  At this point, it is worth investigating how GANs can be used to approximate variational inference in the context of implicit models. First, we start with a review of Variational Autoencoders. 
+
+\vspace{20pt}
 
 \subsection{Variational Autoencoders} \label{vae_sec}
 
@@ -467,23 +516,27 @@ q_{\theta}(\mathbf{x})=\int{p_{\theta}(\mathbf{x}|\mathbf{z})q(\mathbf{z})d\math
 In general, $q_{\theta}(\mathbf{x})$ does not have an analytic representation. It can be numerically approximated using Monte Carlo simulation, i.e.
 
 \begin{align*}
-q_{\theta}(\mathbf{x})\approx \frac{1}{n}\sum p_{\theta}(\mathbf{x}|\mathbf{z}),
+q_{\theta}(\mathbf{x})\approx \frac{1}{n}\sum_{i}^{n} p_{\theta}(\mathbf{x}|\mathbf{z}^{(i)}),\text{ where }\mathbf{z}^{(i)}\sim q(\mathbf{z}),
 \end{align*}
 
-however, this expression might be computationally expensive, particularly in high dimensions. Many values of $\mathbf{z}$ do not contribute to $p(\mathbf{x})$. Variational Autoencoders  attempt to estimate a density function $q_{\gamma}(\mathbf{z}|\mathbf{x})$ that comprises the $\mathbf{z}$ values that are more likely to generate $\mathbf{x}$. Then $q_{\theta}(\bl{x})$ is approximated by $\mathbb{E}_{z\sim q_{\gamma}}[p_{\theta}(\mathbf{x}|\mathbf{z})]$.
+however, this expression might be computationally expensive, particularly in high dimensions. Many values of $\mathbf{z}$ do not contribute to $q_{\theta}(\mathbf{x})$. Variational Autoencoders  attempt to estimate a density function $q_{\gamma}(\mathbf{z}|\mathbf{x})$ that comprises the $\mathbf{z}$ values that are more likely to generate $\mathbf{x}$. Then 
+
+\begin{equation}
+q_{\theta}(\mathbf{x})\approx\int{p_{\theta}(\mathbf{x}|\mathbf{z})q_{\gamma}(\mathbf{z})d\mathbf{z}}
+\end{equation}
 
 The main objective of the procedure is to maximize the log-likelihood $\mathbb{E}_{p}[\log q_{\theta}(\mathbf{x})]$. We have that
 
-\begin{align*}
-\log{q_{\theta}(\bl{x})}&=\log\int p(\mathbf{x},\mathbf{z})d\mathbf{z}\\
-&=\log\int p(\mathbf{x},\mathbf{z})\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}d\mathbf{z}\\
-&=\log\left(\mathbb{E}_{z\sim q_{\gamma}}\left[\frac{p(\mathbf{x},\mathbf{z})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}\right]\right)\\
-&\geq \mathbb{E}_{z\sim q_{\gamma}}[\log{p(\mathbf{x},\mathbf{z})}-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\\
-&= \mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}+\log q(\mathbf{z})-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\\
+\begin{align}
+\log{q_{\theta}(\bl{x})}&=\log\int p(\mathbf{x},\mathbf{z})d\mathbf{z}\nonumber\\
+&=\log\int p(\mathbf{x},\mathbf{z})\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}d\mathbf{z}\nonumber\\
+&=\log\left(\mathbb{E}_{z\sim q_{\gamma}}\left[\frac{p(\mathbf{x},\mathbf{z})}{q_{\gamma}(\mathbf{z}|\mathbf{x})}\right]\right)\nonumber\\
+&\geq \mathbb{E}_{z\sim q_{\gamma}}[\log{p(\mathbf{x},\mathbf{z})}-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\nonumber\\
+&= \mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}+\log q(\mathbf{z})-\log{q_{\gamma}(\mathbf{z}|\mathbf{x})}]\nonumber\\
 &=\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z}))
-\end{align*}
+\end{align}
 
-This last expression is known as the Evidence Lower Bound (ELB). Notice that the Kullback-Leibler divergence between true posterior and the approximation is given by 
+This last expression is known as the Evidence Lower Bound (ELB). Notice that the Kullback-Leibler divergence between the true posterior and the approximation is given by 
 
 \begin{align}
 D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))&=\mathbb{E}_{z\sim q_{\gamma}}\left[\log\frac{q_{\gamma}(\mathbf{z}|\mathbf{x})}{p(\mathbf{z}|\mathbf{x})}\right]\nonumber\\
@@ -493,7 +546,7 @@ D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))&=\mathbb{E}_
 \label{kl_vae}
 \end{align}
 
-It is not possible to minimize the KL divergence, however, minimizing the KL divergence is equivalent to maximizing the ELB. From equation (\ref{kl_vae}) we obtain
+It is not possible to minimize the KL divergence, however, this is equivalent to maximizing the ELB. From equation (\ref{kl_vae}) we obtain
 
 \begin{align}
 D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||p(\mathbf{z}|\mathbf{x}))-\log{q_{\theta}(\mathbf{x})}&=-(\mathbb{E}_{z\sim q_{\gamma}}[\log{p_{\theta}(\mathbf{x}|\mathbf{z})}]-D_{KL}(q_{\gamma}(\mathbf{z}|\mathbf{x})||q(\mathbf{z})))
@@ -508,17 +561,19 @@ In this setting we perform maximum likelihood by
 \label{ml_vae}
 \end{align}
 
-Variational Autoencoders assume $p_{\theta}(\mathbf{x}|\mathbf{z}) = N(\mathbf{x} | G(\mathbf{z}), \sigma^{2}\bl{I})$, where $\bl{I}$ is the identity matrix. In this setting, the main requirement is that $p_{\theta}(\mathbf{x}|\mathbf{z})$ is continuous in $\theta$ and tractable. The $\mathbf{z}$ values are typically drawn from a simple distribution, e.g. $N (0, \bl{I})$. 
+Variational Autoencoders typically assume $p_{\theta}(\mathbf{x}|\mathbf{z}) = N(\mathbf{x} | G(\mathbf{z}), \sigma^{2}\bl{I})$, where $\bl{I}$ is the identity matrix. In this setting, the main requirement is that $p_{\theta}(\mathbf{x}|\mathbf{z})$ is continuous in $\theta$ and tractable. The $\mathbf{z}$ values are typically drawn from a simple distribution, e.g. $N (0, \bl{I})$. 
 
 Kingma and Welling  (2013) assume $q_{\gamma}(\mathbf{z}|\mathbf{x})$ is a Gaussian distribution with mean and variance represented by neural networks depending on $\mathbf{x}$, i.e. $q_{\gamma}(\mathbf{z})\sim N(\mu_{\gamma}, \Sigma_{\gamma})$. Then $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))$ corresponds to the Kullback-Leibler divergence between two multivariate normal distributions which has closed-form solution. This divergence expression takes a sample $\mathbf{x}$ as input and somehow works as an encoder. On the other hand, we approximate $\mathbb{E}_{z\sim q_{\gamma}}[\log p_{\theta}(\mathbf{x}|\mathbf{z})]$ using one sample of $\mathbf{z}$. 
 
-In order to train the model we need to calculate the gradient of $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))-\log p_{\theta}(\mathbf{x}|\mathbf{z})$ and average over samples of $\mathbf{z}$ and $\mathbf{x}$. At some point the algorithm samples from  $q_{\gamma}(\mathbf{z}) = N(\mu_{\gamma}, \Sigma_{\gamma})$. For  stochastic gradient descent to work, this is reparameterized such that $\mathbf{z}= \mu_{\gamma}+\Sigma^{1/2}_{\gamma}\epsilon$ where $\epsilon\sim N(0,\bl{I})$.
+In order to train the model we need to calculate the gradient of $D_{KL}(q_{\gamma}(\mathbf{z})|| q(\mathbf{z}))-\log p_{\theta}(\mathbf{x}|\mathbf{z})$ and average over samples of $\mathbf{z}$ and $\mathbf{x}$. At some point the algorithm produces samples from  $q_{\gamma}(\mathbf{z}) = N(\mu_{\gamma}, \Sigma_{\gamma})$. In order to apply stochastic gradient descent, this is reparameterized such that $\mathbf{z}= \mu_{\gamma}+\Sigma^{1/2}_{\gamma}\epsilon$ where $\epsilon\sim N(0,\bl{I})$ and $\Sigma^{1/2}_{\gamma}$ is a matrix such that $\Sigma_{\gamma}=\Sigma^{1/2}_{\gamma}(\Sigma^{1/2}_{\gamma})^{T}$.
+
+\vspace{20pt}
 
 \subsection{Variational Autoencoders Extension using GANs}
 
-The model described in the previous section has the advantage of being tractable. However, the assumption of $q_{\gamma}(\mathbf{z}|\mathbf{x})$ being  a normal density imposes restrictions on $\mathbf{z}$ that potentially lead to less quality samples coming from the generator.
+The model described in the previous section has the advantage of being tractable. However, the assumption that $q_{\gamma}(\mathbf{z}|\mathbf{x})$ is a normal density imposes restrictions on $\mathbf{z}$ that potentially lead to less quality samples coming from the generator.
 
-Theis et al. (2015) argue that VAEs distribute probability mass diffusely over the data space, therefore they fail to generate sharp samples. This has been particularly analyzed when used to generate images. Larsen et al. (2015) and Mescheder et al. (2017) assert that VAEs fail because the inference model is unable to capture the complexities of true posterior distribution. 
+Theis et al. (2015) argue that VAEs distribute probability mass diffusely over the data space, therefore they fail to generate high quality samples. This has been particularly analyzed when used to generate images. Larsen et al. (2015) and Mescheder et al. (2017) assert that VAEs fail because the inference model is unable to capture the complexities of the true posterior distribution. 
 
 Mescheder et al. (2017) propose an extension of the VAE framework. Instead of assuming $q_{\gamma}(\mathbf{z}|\bl{x})$ has some parametric representation, they introduce an additional discriminator network to train Variational Autoencoders that sample from $q_{\gamma}(\mathbf{z}|\bl{x})$ by means of a generator neural network. From equation (\ref{kl_vae2}) we know that the objective is to minimize the negative evidence lower bound,
 
@@ -576,42 +631,71 @@ Based in equation (\ref{d_kl2}), the generator loss function is defined as
 &=\mathbb{E}_{p}\left[\mathbb{E}_{\epsilon}\left[\log{\frac{D(G(\epsilon,\mathbf{x}),\mathbf{x})}{1- D(G(\epsilon,\mathbf{x}),\mathbf{x})}}\right]\right]
 \end{align*}
 
+\vspace{20pt}
 
-\subsubsection{Experiment}
+\subsubsection{Example}
+
+Assume the $\mathbf{z}=[z_{1},z_{2}]$ is a two-dimensional latent variable and its prior distribution $q$ corresponds to $N(0, \sigma^{2}\mathbf{I})$, where $\sigma^{2}=2$. On the other hand, $\mathbf{x}|\mathbf{z}$ is an exponentially distributed random variable, 
+
+\begin{equation*}
+\mathbf{x}|\mathbf{z}\sim \text{Exp}\left(\frac{1}{\beta}\right),\text{ where }\beta=1+z_{1}^{2}+z_{2}^{2}.
+\end{equation*}
+
+The conditional density of $\mathbf{x}$ given $\mathbf{z}$ is denoted $p_{\beta}(\mathbf{x}|\mathbf{z})$. The latent variable posterior log-density function
+
+\begin{equation}
+\log q_{\gamma}(\mathbf{z}|\bl{x})\propto \log p_{\beta}(\mathbf{x}|\mathbf{z}) + \log q(\mathbf{z})
+\end{equation}
+
+We have that 
+
+\begin{align*}
+\log q(\mathbf{z})=-\log 2\pi-\log \sigma^{2}-\frac{1}{2\sigma^{2}}\mathbf{z}^{T}\mathbf{z}
+\end{align*}
+
+and 
+
+\begin{align*}
+\log p_{\beta}(\mathbf{x}|\mathbf{z}) = -\log \beta - \frac{\mathbf{x}}{\beta}.
+\end{align*}
+
+Figure \ref{prior} shows the latent variable prior density contours plot. Figure \ref{post} presents the contours of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x})$ for $\mathbf{x}=1$ and $\mathbf{x}=30$. In the first case, mass is concentrated in a small area around cero. In the later case, the density function takes a ring shape around cero with no mass in the center. 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{images/prior_contour.png}
+  \includegraphics[width=0.6\linewidth]{images/prior_contour.png}
   \caption{Point in euclidean space and $\epsilon/2$-balls around.}
-  \label{points}
+  \label{prior}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\subfloat[After 2000 epochs]{
-  \includegraphics[width=0.7\linewidth]{images/case2_post_contour1.png}
+\subfloat[Contours plot of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x}=1)$.]{
+  \includegraphics[width=0.6\linewidth]{images/case2_post_contour1.png}
 }\\
 \hspace{0mm}
-\subfloat[After 4000 epochs]{
-  \includegraphics[width=0.7\linewidth]{images/case2_post_contour30.png}
+\subfloat[Contours plot of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x}=30)$.]{
+  \includegraphics[width=0.6\linewidth]{images/case2_post_contour30.png}
 }
-\caption{Countours plot and 1000 points produced by the generator. In figures (a) and (b) the generator parameters have been trained for 2000 and 4000 epochs repectively. }
+\caption{Plots of the contours of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x})$ for $\mathbf{x}=1$ and $\mathbf{x}=30$.}\label{post}
 \end{figure}
 
+The objective is to train a generator neural network, using the adversarial scheme, to sample from the latent variable posterior distribution for which we do not have a closed-form expression. In this example the generator network has 3 hidden layers. Each layer has 20 units with $tanh$ activation functions. The network is fed with $\mathbf{x}$ values and noise coming from a 3-dimensional standard normal distribution. The discriminator network has also 3 hidden layers. Each layer has 20 units with *tanh* and *softplus*  activation functions, and *sigmoid* output. The network is fed with sample $\mathbf{x}$ and $\mathbf{z}$.
 
 \begin{figure}[H]
 \centering
-\subfloat[After 2000 iterations]{
+\subfloat[Contours plot of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x}=1)$ and 1000 data points generated.]{
   \includegraphics[width=0.7\linewidth]{images/case2_post_x1.png}
 }\\
 \hspace{0mm}
-\subfloat[After 4000 interations]{
+\subfloat[Contours plot of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x}=30)$ and 1000 data points generated.]{
   \includegraphics[width=0.7\linewidth]{images/case2_post_x30.png}
 }
-\caption{caption}
+\caption{Plots of the contours of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x})$ for $\mathbf{x}=1$ and $\mathbf{x}=30$, together with 1000 data points produced by the generator's network trained after 4000 epochs.}
+\label{gen_post}
 \end{figure}
 
-
+Figure \ref{gen_post} portrays the contours of the unnormalized posterior density $q_{\gamma}(\mathbf{z}|\bl{x})$ for $\mathbf{x}=1$ and $\mathbf{x}=30$, and 1000 data points produced by the generator's network trained after 4000 epochs. The trained network achieves the goal of generating data consistent with the posterior density. For $\mathbf{x}=1$ $G$ yields samples concentrated in a small area around cero. For $\mathbf{x}=1$ the samples form a ring as described by the contours. 
 
 
 \newpage
